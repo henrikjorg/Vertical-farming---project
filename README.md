@@ -16,7 +16,7 @@ This code simulates a controlled vertical farm environment.
   
 * `environment.py`
 
-  Captures the indoor environment's essence, modeling temperature, humidity, and CO2 concentration.
+  Modeling temperature, humidity, and CO2 concentration.
 
 * `crop.py`
 
@@ -28,7 +28,7 @@ This code simulates a controlled vertical farm environment.
 
 * `config.py`
 
-  Stores essential information about the environmental and crop states, such as titles, units, and initial values. Additionally, it houses constant parameters used in the simulation
+  Stores essential information about the environmental and crop states, such as titles, units, and initial values. Additionally, it houses constant parameters used in the simulation.
 
 ### Example plots
 
