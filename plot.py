@@ -1,6 +1,8 @@
 import matplotlib.pyplot as plt
 from config import *
 
+# (TODO): Plot desired parameter values (desired temperature etc.)
+
 class Plotter:
     def __init__(self, t, y):
         plt.ion()
