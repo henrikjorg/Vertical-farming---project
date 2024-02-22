@@ -13,7 +13,7 @@ class Plotter:
         self.env_fig.suptitle('Environment')
         self.lines = []
         for i, (ax, (_, info)) in enumerate(zip(self.env_axes, env_states_info.items())):
-            line = ax.plot(t,y[i,:])[0]
+            line = ax.plot(t,y[i,:],info.get('color', 'b'))[0]
             ax.set_title(info.get('title', ''))
             ax.set_xlabel('Time [s]')
             ax.set_ylabel(info.get('title', '-') + ' [' + info['unit'] + ']')
