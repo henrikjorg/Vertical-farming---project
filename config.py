@@ -3,7 +3,7 @@ env_states_info = {
         'title': 'Temperature', 
         'unit': '°C', 
         'color': 'b',
-        'init_value': 22.0},
+        'init_value': 24.0},
     'humidity': {
         'title': 'Humidity', 
         'unit': '%', 
@@ -11,9 +11,9 @@ env_states_info = {
         'init_value': 50.0},
     'co2': {
         'title': 'CO2', 
-        'unit': '%', 
+        'unit': 'ppm', 
         'color': 'r',
-        'init_value': 50.0}, 
+        'init_value': 1200.0}, 
 }
 
 crop_states_info = {
@@ -56,12 +56,12 @@ c_resp_sht = 3.47*10**(-7) # [1/s] maintenance respiration coefficient for shoot
 c_resp_rt = 1.16*10**(-7) # [1/s] maintenance respiration coef for root
 c_q10_resp = 2
 c_tau = 0.15 # for lettuce grown in soil
-c_K = 0.9 # for planophile plants like lettuce
+c_K = 0.66 # As reported by Talbot (0.9 according to van Henten for planophile plants like lettuce)
 c_lar = 75*10**(-3) # [m^2/g] structural leaf area ratio (assumed constant)
 c_w = 1.893*10**(-3) # [g/m^3] density of CO2. Taken from Kacira. Van Henten had 1.83 (i think)
 c_Gamma = 71.5 # [ppm] CO2 compensation point at 20 deg. Kacira uses 71.5, which he obtains from tuning. Van Henten uses 40
 c_q10_Gamma = 2
-c_epsilon = 17*10**(-6) # [g/J] light use efficiency at very high CO2 concentrations
+#c_epsilon = 17*10**(-6) # [g/J] light use efficiency at very high CO2 concentrations
 c_car_1 = -1.32*10**(-5)
 c_car_2 = 5.94*10**(-4)
 c_car_3 = -2.64*10**(-3)
