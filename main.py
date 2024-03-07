@@ -7,6 +7,12 @@ from lights import PAR_generator, PPFD_generator
 import time
 import json
 
+# Run parameters
+days = 25
+plot = True
+eval_every_x_seconds = 60
+
+
 def load_config(file_path: str) -> dict:
     """Load configuration from a JSON file."""
     with open(file_path, 'r') as file:
@@ -100,8 +106,8 @@ def main():
     plt.close('all')
     crop_config = load_config('crop_model_config.json')
     env_config = load_config('env_model_config.json')
-    sim_params = initialize_simulation(crop_config, env_config, days=1, eval_every_x_seconds=60)
-    run_simulation(sim_params, plot=True)
+    sim_params = initialize_simulation(crop_config, env_config, days=days, eval_every_x_seconds=eval_every_x_seconds)
+    run_simulation(sim_params, plot=plot)
 
     print(f"Execution time: {time.time() - start_time} seconds")
     plt.ioff()
