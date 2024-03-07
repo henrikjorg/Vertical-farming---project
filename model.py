@@ -6,9 +6,9 @@ from config import *
 
 
 class Model:
-    def __init__(self):
-        self.env_model = EnvironmentModel()
-        self.crop_model = CropModel()
+    def __init__(self, crop_config, env_config):
+        self.env_model = EnvironmentModel(env_config)
+        self.crop_model = CropModel(crop_config)
 
     def model(self, t, y, climate, control_input):
         env_state = y[:len(env_states_info)]

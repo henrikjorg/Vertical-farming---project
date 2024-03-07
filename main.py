@@ -4,108 +4,110 @@ import matplotlib.pyplot as plt
 from scipy.integrate import solve_ivp
 import numpy as np
 from lights import PAR_generator, PPFD_generator
-from config import *
-from utilities import *
 import time
-import cProfile
+import json
 
-def main():
+def load_config(file_path: str) -> dict:
+    """Load configuration from a JSON file."""
+    with open(file_path, 'r') as file:
+        return json.load(file)
+
+def initialize_simulation(crop_config: dict, env_config: dict, days: int, eval_every_x_seconds: int) -> dict:
+    """Set up simulation parameters and initial conditions."""
+    # Simulation time parameters
+    t_end = 60 * 60 * 24 * days  # Total simulation time in seconds
+    num_iter = 24 * days  # One iteration per hour
+    seconds_per_iter = int(t_end / num_iter)
+    samples_per_iter = int(seconds_per_iter / eval_every_x_seconds)
     
-    plt.close('all')
-    plot = True
-    model = Model()
-    days = 25
-    eval_every_x_seconds = 60
-    # Simulation parameters
-    t_end = 60*60*24*days # one week (seconds)
-    num_iter = 24*days # one iteration per hour
-    seconds_per_iter = int(t_end/num_iter)
-    samples_per_iter = int(seconds_per_iter/eval_every_x_seconds)
-    print('samples per iteration: ', samples_per_iter)
-    t_eval = np.linspace(0,t_end,endpoint=True,num=int(days*24*60*60/eval_every_x_seconds + 1))
-    print('t_eval : ', t_eval)
-    # Iteration parameters
-    cur_t_eval = np.linspace(0,seconds_per_iter, endpoint = True, num=samples_per_iter) # time interval for current iteration
-    cur_index_i = 0
-    print('cur t eval: ', cur_t_eval)
-    print('t_end: ', t_end)
-    print('sec per iter_ ', seconds_per_iter)
-    print('samples per iter: ', samples_per_iter)
-    # Initial conditions
-    env_init = np.array([info['init_value'] for info in env_states_info.values()])
-    crop_init = (model.crop_model.X_ns, model.crop_model.X_s) #np.array([info['init_value'] for info in crop_states_info.values()])
-    y0 = np.concatenate((env_init, crop_init), axis=None)
-    num_states = len(env_states_info) + len(crop_states_info)
-    solutions = np.zeros([num_states, len(t_eval)], dtype=float)
+    # Time evaluation points
+    t_eval = np.linspace(0, t_end, endpoint=True, num=int(days * 24 * 60 * 60 / eval_every_x_seconds + 1))
 
-    # Attributes to print
-    crop_attributes_over_time = {
+    # Model and initial conditions
+    model = Model(crop_config=crop_config, env_config=env_config)
+    env_init = np.array([value for key, value in env_config.items() if key.startswith('init_')])
+    crop_init = (model.crop_model.X_ns, model.crop_model.X_s)
+    y0 = np.concatenate((env_init, crop_init), axis=None)
+    
+    return {
+        "model": model, "t_eval": t_eval, "y0": y0, "samples_per_iter": samples_per_iter,
+        "seconds_per_iter": seconds_per_iter, "num_iter": num_iter
+    }
+
+def run_simulation(sim_params: dict, plot: bool = True):
+    """Execute the simulation loop."""
+    # Unpack simulation parameters
+    model, t_eval, y0, samples_per_iter, seconds_per_iter, num_iter = \
+        [sim_params[key] for key in ("model", "t_eval", "y0", "samples_per_iter", "seconds_per_iter", "num_iter")]
+    
+    solutions = np.zeros((len(y0), len(t_eval)), dtype=float)  # Store solutions
+    
+    # Attributes to plot (these are just examples)
+    crop_attributes_over_time = { 
         'LAI': np.zeros(len(t_eval)),
         'dry_weight': np.zeros(len(t_eval)),
         'fresh_weight_shoot_per_plant': np.zeros(len(t_eval)),
-        # Add any other attributes you want to track
     }
-    env_attributes_over_time = {
-        'Transpiration': np.zeros(len(t_eval)),
-    }
+    env_attributes_over_time = {'Transpiration': np.zeros(len(t_eval))}
+    
+    # Initialize Plotter
+    plotter = Plotter(t_eval, solutions, crop_attributes_over_time, env_attributes_over_time) if plot else None
 
-
-    # Initialize plotter
-    if plot:
-        plotter = Plotter(t_eval, solutions, crop_attributes_over_time, env_attributes_over_time)
-    # Run simulation
+    cur_index_i = 0
     for i in range(num_iter):
-        # (TODO): Fetch time-varying climate parameters
+        # Simulate external conditions
+        hour = (i * seconds_per_iter) // (60 * 60)
+        climate, control_input = simulate_external_conditions(hour)
+
+        # Update simulation parameters
+        sol = solve_ivp(fun=model.model, t_span=[0, seconds_per_iter], y0=y0, method='RK45', t_eval=np.linspace(0, seconds_per_iter, samples_per_iter),
+                        args=[climate, control_input])
+
+        # Process solution
+        process_solution(sol, model, crop_attributes_over_time, env_attributes_over_time, cur_index_i, solutions)
+        cur_index_i += len(sol.t)  # Update current index for next iteration
+        y0 = sol.y[:, -1]  # Update initial conditions for next iteration
         
-        outside_temperature = np.random.randint(20,26)
-        outside_vapour_concentration = np.random.randint(45, 55)
-        hour = i*seconds_per_iter // (60*60)
-        print('hour:: ', hour)
-        # Setting parameters
-        PPFD = PPFD_generator(hour)
-        PAR_flux = PPFD * 0.217 # Conversion factor for the model because it was developed for solar radiation
-        wind_vel = 0.2
-        DAT = t_eval[cur_index_i] // (60*60*24)
-
-
-        climate = (outside_temperature, outside_vapour_concentration, DAT)
-        control_input = (PAR_flux, PPFD, wind_vel)
-        
-        args = [climate, control_input]
-        # Solve initial value problem for system of ODEs
-        sol = solve_ivp(fun=model.model,
-                        t_span=[cur_t_eval[0], cur_t_eval[-1]],
-                        y0=y0,
-                        method='RK45',
-                        t_eval=cur_t_eval,
-                        rtol=1e-1,
-                        dense_output=True,
-                        args=args)
-
-        # Update iteration parameters
-        cur_index_f = cur_index_i + len(sol.t)
-        cur_t_eval = np.linspace(t_eval[cur_index_i], t_eval[cur_index_f], endpoint=True, num=samples_per_iter)
-        y0 = sol.y[:,-1]
-        X_ns = y0[-2]
-        X_s = y0[-1]
-
-        # Update the internal attributes of the plant model
-        model.crop_model.update_values(X_ns,X_s)
-        crop_attributes_over_time['LAI'][cur_index_i:cur_index_f] = model.crop_model.LAI
-        crop_attributes_over_time['dry_weight'][cur_index_i:cur_index_f] = model.crop_model.dry_weight
-        crop_attributes_over_time['fresh_weight_shoot_per_plant'][cur_index_i:cur_index_f] = model.crop_model.fresh_weight_shoot_per_plant
-        env_attributes_over_time['Transpiration'][cur_index_i:cur_index_f] = model.env_model.transpiration
-
-        solutions[:,cur_index_i:cur_index_f] = sol.y
-        cur_index_i = cur_index_f
         if plot:
-            plotter.update_plot(t_eval, solutions, t_eval[cur_index_f], crop_attributes_over_time, env_attributes_over_time)
+            plotter.update_plot(t_eval, solutions, t_eval[cur_index_i], crop_attributes_over_time, env_attributes_over_time)
+
+def simulate_external_conditions(hour: int) -> tuple:
+    """Simulate external climate and control input for the current simulation step."""
+    outside_temperature = np.random.randint(20, 26)
+    outside_vapour_concentration = np.random.randint(45, 55)
+    PPFD = PPFD_generator(hour)
+    PAR_flux = PPFD * 0.217  # Conversion factor for the model
+    wind_vel = 0.2
+    DAT = hour // 24
+    
+    climate = (outside_temperature, outside_vapour_concentration, DAT)
+    control_input = (PAR_flux, PPFD, wind_vel)
+    
+    return climate, control_input
+
+def process_solution(sol, model, crop_attrs, env_attrs, cur_index, solutions):
+    """Update attributes and solutions based on the current simulation step."""
+    # Extract relevant data from solution
+    cur_index_f = cur_index + len(sol.t)
+    solutions[:, cur_index:cur_index_f] = sol.y
+    
+    # Update tracked attributes
+    for key in crop_attrs.keys():
+        crop_attrs[key][cur_index:cur_index_f] = getattr(model.crop_model, key)
+    env_attrs['Transpiration'][cur_index:cur_index_f] = model.env_model.transpiration
+
+def main():
+    plt.close('all')
+    crop_config = load_config('crop_model_config.json')
+    env_config = load_config('env_model_config.json')
+    sim_params = initialize_simulation(crop_config, env_config, days=1, eval_every_x_seconds=60)
+    run_simulation(sim_params, plot=True)
+
+    print(f"Execution time: {time.time() - start_time} seconds")
+    plt.ioff()
+    plt.show()
 
 if __name__ == "__main__":
     start_time = time.time()
     main()
-    #cProfile.run('main()', sort='cumtime')
-    end_time = time.time()
-    print(f"Execution time: {end_time - start_time} seconds")
-    plt.ioff()
-    plt.show()
+    # Optional: cProfile.run('main()', sort='cumtime')
