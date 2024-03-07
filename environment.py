@@ -5,33 +5,50 @@ from scipy.optimize import minimize
 # Modeling the indoor environment, including temperature, humidity and carbon dioxide concentration.
 
 class EnvironmentModel:
-    def find_transpiration(self, T_air, Chi_air, LAI, CAC, PAR_flux, PPFD, r_a, r_s):
+    def __init__(self) -> None:
+        self.surface_temperature = 20
+        self.transpiration = 0
+    def print_attributes(self, *args):
+        if args:  # If specific attribute names are provided
+            for attr_name in args:
+                if hasattr(self, attr_name):  # Check if the attribute exists
+                    print(f"{attr_name}: {getattr(self, attr_name)}")
+                else:
+                    print(f"Attribute '{attr_name}' not found.")
+        else:  # If no specific attribute names are provided, print all attributes
+            for attr, value in self.__dict__.items():
+                print(f"{attr}: {value}")
+    def update_values(self, E):
+        self.transpiration = E*1000 # To convert from kg/m^2s to g/m^2s
+    def find_transpiration(self, T_air, Chi_air,LAI, CAC, PAR_flux, r_a, r_s, rho_r):
         # Function that finds the surface temperature through optimization and calculates the plant transpiration
         # returns the surface temperature, the evaporation rate E, the latent heat flux λE
-        
-        def energy_balance(surface_temperature, T_air, Chi_air, LAI, CAC, PAR_flux, PPFD, r_s,r_a, epsilon_vapor, Chi_air_sat, net_radiation):
-            sensible_heat_flux = LAI*rho_a*c_specific_heat*(surface_temperature-T_air)/r_s
-            latent_heat_flux = LAI*lambda_water*(Chi_air_sat+rho_a*c_specific_heat/lambda_water*epsilon_vapor*(surface_temperature-T_air)-Chi_air)/(r_s+r_a)
-            
+
+        def energy_balance(surface_temperature, T_air, Chi_air, LAI, r_s,r_a, net_radiation):
+            sensible_heat_flux = LAI*rho_a*c_specific_heat*(surface_temperature-T_air)/r_a
+            Chi_surface = estimate_Chi_surface(T_air, surface_temperature)
+            latent_heat_flux = LAI*lambda_water*(Chi_surface-Chi_air)/(r_s+r_a)
             return abs(net_radiation - sensible_heat_flux - latent_heat_flux)  # Objective is to minimize this to almost 0
         
          # Initial guess for surface temperature
-        initial_guess = T_air
+        initial_guess = self.surface_temperature
         # Use an optimization method to find the surface temperature that minimizes the energy balance equation
-        epsilon_vapor = slope_of_saturation_vapor_pressure_curve(T_air)
-        Chi_air_sat = saturated_vapor_concentration(T_air)
-        net_radiation = net_radiation_equation(PAR_flux, CAC)
-        args = (T_air, Chi_air, LAI, CAC, PAR_flux, PPFD, r_s,r_a,epsilon_vapor,Chi_air_sat, net_radiation)
-        result = minimize(energy_balance, initial_guess, args, method='Nelder-Mead')
 
+        net_radiation = net_radiation_equation(PAR_flux, CAC, rho_r)
+        args = (T_air, Chi_air, LAI, r_s,r_a, net_radiation)
+        result = minimize(energy_balance, initial_guess, args=args, method='Nelder-Mead',options={'fatol': 1e-2})
+        
         # Check if the optimization was successful
         if not result.success:
             raise ValueError("Optimization failed to find a solution for surface temperature.")
 
         # Use the optimized surface temperature to calculate transpiration
         surface_temperature = result.x[0]
-        E = LAI*(Chi_air_sat+rho_a*c_specific_heat/lambda_water*epsilon_vapor*(surface_temperature-T_air)-Chi_air)/(r_s+r_a)
+
+        self.surface_temperature = surface_temperature
+        E = LAI*(estimate_Chi_surface(T_air, surface_temperature)-Chi_air)/(r_s+r_a)
         transpiration = E*lambda_water
+
         return surface_temperature, E, transpiration
     def temperature_ode(self, T_air, latent_heat_flux, T_out, PAR_flux, CAC):
         # Q_cov: Heat transfer via convection between the air and the outside environment, in Watts.
@@ -52,27 +69,31 @@ class EnvironmentModel:
         # Gjermund included the Q_reflected. Is it correctly implemented? 
 
     def humidity_ode(self, Chi_air, Chi_out,E):
-        return -0.2*Chi_air+0.2*Chi_out#+E
+        return 0
     
     def co2_ode(self):
         return 0
 
-    def env_conditions(self, env_state, crop_state, climate, control_input):
+    def env_conditions(self, env_state, crop_state, climate, control_input, crop_model):
         # State parameters
-        T_air, Chi_air, CO2_air = env_state
+        T_air, RH, CO2_air = env_state
         X_ns, X_s = crop_state
-        LAI = biomass_to_LAI(X_s)
+        
+        Chi_air_sat = estimate_Chi_sat(T_air)
+        Chi_air = Chi_air_sat * RH/100 
+        LAI = SLA_to_LAI(SLA=crop_model.SLA, c_tau=crop_model.coeffs['c_tau'], leaf_to_shoot_ratio=crop_model.coeffs['leaf_to_shoot_ratio'], X_s=X_s, X_ns=X_ns)
         CAC = LAI_to_CAC(LAI)
         # Varying parameters
         T_out, Chi_out, DAT = climate
         PAR_flux, PPFD, wind_vel = control_input
 
         # Calculated parameters
-        r_s = stomatal_resistance_eq(PPFD)
-        r_a = aerodynamical_resistance_eq(wind_vel, LAI)
-        T_surface, E, latent_heat_flux = self.find_transpiration(T_air, Chi_air, LAI, CAC, PAR_flux, PPFD, r_a,r_s)
+        r_s = stomatal_resistance_eq(PPFD=PPFD)
+        r_a = aerodynamical_resistance_eq(uninh_air_vel=wind_vel, LAI=LAI, leaf_diameter=crop_model.coeffs['leaf_diameter'])
+        T_surface, E, latent_heat_flux = self.find_transpiration(T_air=T_air, Chi_air=Chi_air, LAI=LAI, CAC=CAC, PAR_flux=PAR_flux, r_a=r_a,r_s=r_s, rho_r=crop_model.coeffs['rho_r'])
 
         dT_air_dt = self.temperature_ode(T_air, Chi_air, latent_heat_flux, T_out, PAR_flux)
         dChi_air_dt = self.humidity_ode(Chi_air, Chi_out, E)
         dCO2_air_dt = self.co2_ode()
+        self.update_values(E=E)
         return np.array([dT_air_dt, dChi_air_dt, dCO2_air_dt])
