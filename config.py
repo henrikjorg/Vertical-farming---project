@@ -40,7 +40,7 @@ g_V = 1
 
 # Crop tranpiration coefficients
 #rho_r = 0.06 # reflection coefficient of the crop
-lambda_water = 2.450 # Latent heat of vaporization of water J/kg
+lambda_water = 2.26e3 # Latent heat of vaporization of water J/g
 #l_d = 0.05 # Mean leaf diameter [m]
 rho_a = 1.204 # Air density [kg/m^3]
 c_specific_heat = 1005 # specific heat of air [J/g°C]

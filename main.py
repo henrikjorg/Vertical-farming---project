@@ -11,6 +11,8 @@ import json
 days = 25
 plot = True
 eval_every_x_seconds = 60
+env_attributes_to_plot = ['transpiration']
+crop_attributes_to_plot = ['LAI', 'CAC', 'dry_weight', 'fresh_weight_shoot_per_plant']
 
 
 def load_config(file_path: str) -> dict:
@@ -49,12 +51,12 @@ def run_simulation(sim_params: dict, plot: bool = True):
     solutions = np.zeros((len(y0), len(t_eval)), dtype=float)  # Store solutions
     
     # Attributes to plot (these are just examples)
-    crop_attributes_over_time = { 
-        'LAI': np.zeros(len(t_eval)),
-        'dry_weight': np.zeros(len(t_eval)),
-        'fresh_weight_shoot_per_plant': np.zeros(len(t_eval)),
-    }
-    env_attributes_over_time = {'Transpiration': np.zeros(len(t_eval))}
+    crop_attributes_over_time = {}
+    env_attributes_over_time = {}
+    for attr in crop_attributes_to_plot:
+        crop_attributes_over_time[attr] = np.zeros(len(t_eval))
+    for attr in env_attributes_to_plot:
+        env_attributes_over_time[attr] = np.zeros(len(t_eval))
     
     # Initialize Plotter
     plotter = Plotter(t_eval, solutions, crop_attributes_over_time, env_attributes_over_time) if plot else None
@@ -76,6 +78,9 @@ def run_simulation(sim_params: dict, plot: bool = True):
         
         if plot:
             plotter.update_plot(t_eval, solutions, t_eval[cur_index_i], crop_attributes_over_time, env_attributes_over_time)
+    if plot:
+        plotter.plot_cac_vs_transpiration(crop_attributes_over_time, env_attributes_over_time)
+
 
 def simulate_external_conditions(hour: int) -> tuple:
     """Simulate external climate and control input for the current simulation step."""
@@ -100,7 +105,8 @@ def process_solution(sol, model, crop_attrs, env_attrs, cur_index, solutions):
     # Update tracked attributes
     for key in crop_attrs.keys():
         crop_attrs[key][cur_index:cur_index_f] = getattr(model.crop_model, key)
-    env_attrs['Transpiration'][cur_index:cur_index_f] = model.env_model.transpiration
+    for key in env_attrs.keys():
+        env_attrs[key][cur_index:cur_index_f] = getattr(model.env_model, key)
 
 def main():
     plt.close('all')

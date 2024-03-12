@@ -2,7 +2,7 @@
     "ideal_temp": 24,
     "ideal_PPFD": 400,
     "init_FW_per_plant": 1,
-    "SLA": 0.3,
+    "SLA": 0.03,
     "plant_density": 25,
     "structural_to_nonstructural": 0.75,
     "dry_weight_fraction": 0.05,

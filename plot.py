@@ -117,3 +117,13 @@ class Plotter:
                 ax.autoscale_view()
         plt.pause(0.1)
         
+    def plot_cac_vs_transpiration(self, crop_attrs, env_attrs):
+        if 'CAC' not in crop_attrs or 'transpiration' not in env_attrs:
+            raise KeyError('CAC or transpiration is not in crop_attrs or env_attrs')
+        plt.figure(figsize=(10, 6))
+        plt.scatter(crop_attrs['CAC'], env_attrs['transpiration'], alpha=0.5)
+        plt.title('CAC vs Transpiration')
+        plt.xlabel('Cultivation Area Cover (CAC)')
+        plt.ylabel('Transpiration')
+        plt.grid(True)
+        plt.show()

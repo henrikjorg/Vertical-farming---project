@@ -53,7 +53,7 @@ class EnvironmentModel:
 
         E = LAI * (estimate_Chi_surface(T_air, surface_temperature) - Chi_air) / (r_s + r_a)
         latent_heat_flux = E * lambda_water
-        self.transpiration = E * 1000
+        self.transpiration = E
         return surface_temperature, E, latent_heat_flux
 
     def temperature_ode(self, T_air, latent_heat_flux, T_out, PAR_flux, CAC):

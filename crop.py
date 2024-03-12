@@ -9,7 +9,7 @@ class CropModel:
         self.ideal_temp: float = config.get('ideal_temp', 24)
         self.ideal_PPFD: float = config.get('ideal_PPFD', 400)
         self.init_FW_per_plant: float = config.get('init_FW_per_plant', 1)
-        self.SLA: float = config.get('SLA', 0.3)
+        self.SLA: float = config.get('SLA', 0.03)
         self.plant_density: float = config.get('plant_density', 25)
 
         # Physiological parameters
