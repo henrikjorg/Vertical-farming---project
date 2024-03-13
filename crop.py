@@ -75,7 +75,6 @@ class CropModel:
         else:
             for attr, value in vars(self).items():
                 print(f"{attr}: {value}")
-
     def biomass_ode(self, X_ns: float, X_s: float, T_air: float, CO2_air: float, PAR_flux: float, PPFD: float, g_bnd: float, g_stm: float):
         CO2_ppm = CO2_air
         g_car = self.c_car_1 * T_air**2 + self.c_car_2 * T_air + self.c_car_3
@@ -83,9 +82,12 @@ class CropModel:
         Gamma = self.c_Gamma * self.c_q10_Gamma ** ((T_air - 20) / 10)
         epsilon_biomass = c_epsilon_calibrated(PPFD, T_air) * (CO2_ppm - Gamma) / (CO2_ppm + 2 * Gamma)
         f_phot_max = (epsilon_biomass * PAR_flux * g_CO2 * self.c_w * (CO2_ppm - Gamma)) / (epsilon_biomass * PAR_flux + g_CO2 * self.c_w * (CO2_ppm - Gamma))
-        f_phot = (1 - np.exp(-self.c_K * self.c_lar * (1 - self.c_tau) * X_s)) * f_phot_max
+        f_phot = (1 - np.exp(-self.c_K * self.LAI)) * f_phot_max
+        self.f_phot = f_phot
+        self.p_phot_max = f_phot_max
+        self.f_phot_converted = f_phot / 1.8015e-5
         f_resp = (self.c_resp_sht * (1 - self.c_tau) * X_s + self.c_resp_rt * self.c_tau * X_s) * self.c_q10_resp ** ((T_air - 25) / 10)
-        
+        self.f_resp = f_resp
         r_gr = c_gr_max_calibrated(PPFD, T_air) * X_ns / (self.c_gamma * X_s + X_ns) * self.c_q10_gr ** ((T_air - 20) / 10)
         dX_ns = self.c_a * f_phot - r_gr * X_s - f_resp - (1 - c_beta_calibrated(PPFD, T_air)) / c_beta_calibrated(PPFD, T_air) * r_gr * X_s
         dX_s = r_gr * X_s

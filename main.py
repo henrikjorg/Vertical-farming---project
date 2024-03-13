@@ -12,7 +12,7 @@ days = 25
 plot = True
 eval_every_x_seconds = 60
 env_attributes_to_plot = ['transpiration']
-crop_attributes_to_plot = ['LAI', 'CAC', 'dry_weight', 'fresh_weight_shoot_per_plant']
+crop_attributes_to_plot = ['LAI', 'CAC', 'dry_weight', 'fresh_weight_shoot_per_plant', 'f_phot_converted']
 
 
 def load_config(file_path: str) -> dict:
@@ -78,8 +78,8 @@ def run_simulation(sim_params: dict, plot: bool = True):
         
         if plot:
             plotter.update_plot(t_eval, solutions, t_eval[cur_index_i], crop_attributes_over_time, env_attributes_over_time)
-    if plot:
-        plotter.plot_cac_vs_transpiration(crop_attributes_over_time, env_attributes_over_time)
+    #if plot:
+    #    plotter.plot_cac_vs_transpiration(crop_attributes_over_time, env_attributes_over_time)
 
 
 def simulate_external_conditions(hour: int) -> tuple:
