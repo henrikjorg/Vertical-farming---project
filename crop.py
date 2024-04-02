@@ -46,6 +46,8 @@ class CropModel:
         self.fresh_weight_shoot_per_plant: float = self.init_FW_per_plant
         self.fresh_weight_shoot: float = self.fresh_weight_shoot_per_plant * self.plant_density
         self.dry_weight: float = self.fresh_weight_shoot * self.dry_weight_fraction / (1 - self.c_tau)
+        self.dry_weight_per_plant: float = self.dry_weight / self.plant_density
+        self.structural_dry_weight_per_plant: float = self.dry_weight_per_plant * self.structural_to_nonstructural
         self.X_ns: float = self.dry_weight * (1 - self.structural_to_nonstructural)
         self.X_s: float = self.dry_weight * self.structural_to_nonstructural
         self.LAI: float = SLA_to_LAI(SLA=self.SLA, c_tau=self.c_tau, leaf_to_shoot_ratio=self.leaf_to_shoot_ratio, X_s=self.X_s, X_ns=self.X_ns)
@@ -63,6 +65,8 @@ class CropModel:
         self.X_ns = X_ns
         self.X_s = X_s
         self.dry_weight = X_ns + X_s
+        self.dry_weight_per_plant = self.dry_weight / self.plant_density
+        self.structural_dry_weight_per_plant = self.X_s / self.plant_density
         self.set_fresh_weight_shoot()
         self.set_SLA()
         self.LAI = SLA_to_LAI(SLA=self.SLA, c_tau=self.c_tau, leaf_to_shoot_ratio=self.leaf_to_shoot_ratio, X_s=self.X_s, X_ns=self.X_ns)
@@ -87,8 +91,12 @@ class CropModel:
         self.p_phot_max = f_phot_max
         self.f_phot_converted = f_phot / 1.8015e-5
         f_resp = (self.c_resp_sht * (1 - self.c_tau) * X_s + self.c_resp_rt * self.c_tau * X_s) * self.c_q10_resp ** ((T_air - 25) / 10)
+        
         self.f_resp = f_resp
         r_gr = c_gr_max_calibrated(PPFD, T_air) * X_ns / (self.c_gamma * X_s + X_ns) * self.c_q10_gr ** ((T_air - 20) / 10)
+
+        # For testing purposes
+        r_gr = 1e-6 * self.c_q10_gr ** ((T_air - 20) / 10)
         dX_ns = self.c_a * f_phot - r_gr * X_s - f_resp - (1 - c_beta_calibrated(PPFD, T_air)) / c_beta_calibrated(PPFD, T_air) * r_gr * X_s
         dX_s = r_gr * X_s
 

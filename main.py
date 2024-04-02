@@ -12,7 +12,7 @@ days = 25
 plot = True
 eval_every_x_seconds = 60
 env_attributes_to_plot = ['transpiration']
-crop_attributes_to_plot = ['LAI', 'CAC', 'dry_weight', 'fresh_weight_shoot_per_plant', 'f_phot_converted']
+crop_attributes_to_plot = ['structural_dry_weight_per_plant']
 
 
 def load_config(file_path: str) -> dict:

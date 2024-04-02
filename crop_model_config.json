@@ -1,7 +1,7 @@
 {
     "ideal_temp": 24,
     "ideal_PPFD": 400,
-    "init_FW_per_plant": 1,
+    "init_FW_per_plant": 2,
     "SLA": 0.03,
     "plant_density": 25,
     "structural_to_nonstructural": 0.75,
