@@ -96,7 +96,7 @@ class CropModel:
         r_gr = c_gr_max_calibrated(PPFD, T_air) * X_ns / (self.c_gamma * X_s + X_ns) * self.c_q10_gr ** ((T_air - 20) / 10)
 
         # For testing purposes
-        r_gr = 1e-6 * self.c_q10_gr ** ((T_air - 20) / 10)
+        #r_gr = 1e-6 * self.c_q10_gr ** ((T_air - 20) / 10)
         dX_ns = self.c_a * f_phot - r_gr * X_s - f_resp - (1 - c_beta_calibrated(PPFD, T_air)) / c_beta_calibrated(PPFD, T_air) * r_gr * X_s
         dX_s = r_gr * X_s
 
