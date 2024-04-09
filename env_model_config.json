@@ -1,6 +1,7 @@
 {
     "init_T_air": 24,
     "init_RH": 70,
-    "init_CO2": 1200
+    "init_CO2": 1200,
+    "air_vel": 0.2 
   }
   

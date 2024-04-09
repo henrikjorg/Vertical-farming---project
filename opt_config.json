@@ -1,0 +1,8 @@
+{
+    "Days": 10,
+    "N_horizon": 24,
+    "Fmax": 500,
+    "Fmin": 400,
+    "DaysSim": 3,
+    "Ts":   3600
+}

@@ -33,7 +33,7 @@ import numpy as np
 from acados_template import latexify_plot
 
 
-def plot_crop(t, u_max, U, X_true, X_est=None, Y_measured=None, latexify=False, plt_show=True, X_true_label=None):
+def plot_crop(t, u_max,u_min, U, X_true, X_est=None, Y_measured=None, latexify=False, plt_show=True, X_true_label=None):
     """
     Params:
         t: time values of the discretization
@@ -59,9 +59,11 @@ def plot_crop(t, u_max, U, X_true, X_est=None, Y_measured=None, latexify=False, 
     if WITH_ESTIMATION:
         N_mhe = N_sim - X_est.shape[0]
         t_mhe = np.linspace(N_mhe * Ts, Tf, N_sim-N_mhe)
+        days_mhe = t_mhe / (60*60*24)
 
     plt.subplot(nx+1, 1, 1)
-    line, = plt.step(t, np.append([U[0]], U))
+    days = t / (60*60*24)
+    line, = plt.step(days, np.append([U[0]], U))
     if X_true_label is not None:
         line.set_label(X_true_label)
     else:
@@ -69,29 +71,29 @@ def plot_crop(t, u_max, U, X_true, X_est=None, Y_measured=None, latexify=False, 
 
     plt.ylabel('$u$')
     plt.xlabel('$t$')
-    plt.hlines(u_max, t[0], t[-1], linestyles='dashed', alpha=0.7)
-    plt.hlines(-u_max, t[0], t[-1], linestyles='dashed', alpha=0.7)
-    plt.ylim([-1.2*u_max, 1.2*u_max])
-    plt.xlim(t[0], t[-1])
+    plt.hlines(u_max, days[0], days[-1], linestyles='dashed', alpha=0.7)
+    plt.hlines(u_min, days[0], days[-1], linestyles='dashed', alpha=0.7)
+    plt.ylim([0.8*u_min, 1.2*u_max])
+    plt.xlim(days[0], days[-1])
     plt.grid()
 
-    states_lables = ['$x$', r'$\theta$', '$v$', r'$\dot{\theta}$']
+    states_lables = ['$X_ns$', '$X_s$', '$z$']
 
     for i in range(nx):
         plt.subplot(nx+1, 1, i+2)
-        line, = plt.plot(t, X_true[:, i], label='true')
+        line, = plt.plot(days, X_true[:, i], label='true')
         if X_true_label is not None:
             line.set_label(X_true_label)
 
         if WITH_ESTIMATION:
-            plt.plot(t_mhe, X_est[:, i], '--', label='estimated')
-            plt.plot(t, Y_measured[:, i], 'x', label='measured')
+            plt.plot(days_mhe, X_est[:, i], '--', label='estimated')
+            plt.plot(days, Y_measured[:, i], 'x', label='measured')
 
         plt.ylabel(states_lables[i])
         plt.xlabel('$t$')
         plt.grid()
         plt.legend(loc=1)
-        plt.xlim(t[0], t[-1])
+        plt.xlim(t[0], days[-1])
 
     plt.subplots_adjust(left=None, bottom=None, right=None, top=None, hspace=0.4)
 

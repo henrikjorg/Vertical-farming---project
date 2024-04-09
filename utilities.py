@@ -66,43 +66,45 @@ optimal_c_epsilon_parameters = np.array([10.5,11,10.75,10.75,11.75,9.75,8,8.1,7]
 optimal_c_gr_max_parameters = np.array([0.8,0.7,0.2,1,0.9,0.5,1.2,1,0.5]) * 10**(-6)
 optimal_c_beta_parameters = np.array([0.4,0.4,0.42,0.4,0.4,0.4,0.4,0.4,0.4])
 
-def c_epsilon_calibrated(PPFD, temperature):
+def c_epsilon_calibrated(PPFD, temperature, use_calibrated = False):
+    if not use_calibrated:
+        return 17e-6
     # Ensure PPFD and temperature are within the experimental range
-    PPFD = max(200, min(PPFD, 750))  # Adjust PPFD to be within [200, 750]
-    temperature = max(20, min(temperature, 28))  # Adjust temperature to be within [20, 28]
+    PPFD_temp = max(200, min(PPFD, 750))  # Adjust PPFD to be within [200, 750]
+    temperature_temp = max(20, min(temperature, 28))  # Adjust temperature to be within [20, 28]
     
     # Points where you have data
     points = np.array([PPFD_values, temperature_values]).T
     # Interpolate (or effectively look up) for the adjusted PPFD and temperature
-    c_epsilon = griddata(points, optimal_c_epsilon_parameters, (PPFD, temperature), method='linear')
-    
+    c_epsilon = griddata(points, optimal_c_epsilon_parameters, (PPFD_temp, temperature_temp), method='linear')
     return c_epsilon
 def c_gr_max_calibrated(PPFD, temperature, use_calibrated = False):
-    # Ensure PPFD and temperature are within the experimental range
-    PPFD = max(200, min(PPFD, 750))  # Adjust PPFD to be within [200, 750]
-    temperature = max(20, min(temperature, 28))  # Adjust temperature to be within [20, 28]
-    
-    # Points where you have data
-    points = np.array([PPFD_values, temperature_values]).T
-    # Interpolate (or effectively look up) for the adjusted PPFD and temperature
-    c_gr_max_calculated = griddata(points, optimal_c_gr_max_parameters, (PPFD, temperature), method='linear')
-    if use_calibrated:
-        return c_gr_max_calculated
-    else:
+    if not use_calibrated:
         return 5*10**(-6)
-def c_beta_calibrated(PPFD, temperature, use_calibrated = False):
     # Ensure PPFD and temperature are within the experimental range
-    PPFD = max(200, min(PPFD, 750))  # Adjust PPFD to be within [200, 750]
-    temperature = max(20, min(temperature, 28))  # Adjust temperature to be within [20, 28]
+    PPFD_temp = max(200, min(PPFD, 750))  # Adjust PPFD to be within [200, 750]
+    temperature_temp = max(20, min(temperature, 28))  # Adjust temperature to be within [20, 28]
     
     # Points where you have data
     points = np.array([PPFD_values, temperature_values]).T
     # Interpolate (or effectively look up) for the adjusted PPFD and temperature
-    c_beta_calculated = griddata(points, optimal_c_beta_parameters, (PPFD, temperature), method='linear')
-    if use_calibrated:
-        return c_beta_calculated
-    else:
+    c_gr_max_calculated = griddata(points, optimal_c_gr_max_parameters, (PPFD_temp, temperature_temp), method='linear')
+   
+    return c_gr_max_calculated
+    
+        
+def c_beta_calibrated(PPFD, temperature, use_calibrated = False):
+    if not use_calibrated:
         return 0.72
+    # Ensure PPFD and temperature are within the experimental range
+    PPFD_temp = max(200, min(PPFD, 750))  # Adjust PPFD to be within [200, 750]
+    temperature_temp = max(20, min(temperature, 28))  # Adjust temperature to be within [20, 28]
+    
+    # Points where you have data
+    points = np.array([PPFD_values, temperature_values]).T
+    # Interpolate (or effectively look up) for the adjusted PPFD and temperature
+    c_beta_calculated = griddata(points, optimal_c_beta_parameters, (PPFD_temp, temperature_temp), method='linear')
+    return c_beta_calculated
 
 def SLA_to_LAI(SLA, c_tau, leaf_to_shoot_ratio, X_s, X_ns):
     """

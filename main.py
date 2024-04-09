@@ -8,6 +8,7 @@ import time
 import json
 
 # Run parameters
+ignore_environment = True
 days = 25
 plot = True
 eval_every_x_seconds = 60
@@ -69,7 +70,7 @@ def run_simulation(sim_params: dict, plot: bool = True):
 
         # Update simulation parameters
         sol = solve_ivp(fun=model.model, t_span=[0, seconds_per_iter], y0=y0, method='RK45', t_eval=np.linspace(0, seconds_per_iter, samples_per_iter),
-                        args=[climate, control_input])
+                        args=[climate, control_input, ignore_environment])
 
         # Process solution
         process_solution(sol, model, crop_attributes_over_time, env_attributes_over_time, cur_index_i, solutions)
@@ -120,6 +121,6 @@ def main():
     plt.show()
 
 if __name__ == "__main__":
-    start_time = time.time()
+    #start_time = time.time()
     main()
     # Optional: cProfile.run('main()', sort='cumtime')

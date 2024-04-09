@@ -11,6 +11,7 @@ class EnvironmentModel:
         self.T_air = config['init_T_air']
         self.RH = config['init_RH']
         self.CO2 = config['init_CO2']
+        self.air_vel = config['air_vel']
         self.update_derived_values()
 
     def update_derived_values(self):
@@ -85,5 +86,5 @@ class EnvironmentModel:
         dT_air_dt = self.temperature_ode(T_air, latent_heat_flux, T_out, PAR_flux, CAC)
         dChi_air_dt = self.humidity_ode(Chi_air, Chi_out, E)
         dCO2_air_dt = self.co2_ode()
-
+        
         return np.array([dT_air_dt, dChi_air_dt, dCO2_air_dt])

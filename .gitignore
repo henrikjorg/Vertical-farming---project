@@ -163,3 +163,10 @@ ODE_test_file.py
 #.idea/
 acados/
 c_generated_code/
+ocp_sol.json
+tmp_ocp.json
+mocp.json
+mocp_sol.json
+linear_mass_ocp.json
+acados_ocp_pendulum_ode.json
+acados_ocp_pendulum.json

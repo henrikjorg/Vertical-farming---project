@@ -1,76 +1,112 @@
-from casadi import *
+
 import numpy as np
 import matplotlib.pyplot as plt
 from crop import CropModel
 from environment import EnvironmentModel
 from utilities import *
 import json
-
+from casadi import SX, vertcat, exp, sum1
+import casadi as ca
 from acados_template import AcadosOcp, AcadosOcpSolver
 from opt_crop_model import export_biomass_ode_model
+from opt_setup_solver import opt_setup
+from opt_utils import plot_crop
+
 # import acados.interfaces.acados_template as at
 def load_config(file_path: str) -> dict:
     """Load configuration from a JSON file."""
     with open(file_path, 'r') as file:
         return json.load(file)
-crop_config = load_config('crop_model_config.json')
-Crop = CropModel(crop_config)
 
 def main():
-    # Create the ocp object
-    ocp = AcadosOcp()
+    crop_config = load_config('crop_model_config.json')
+    env_config = load_config('env_model_config.json')
+    opt_config = load_config('opt_config.json')
+    N_horizon = opt_config['N_horizon']
+    energy_prices = np.ones(opt_config['N_horizon'])
+    Crop = CropModel(crop_config)
+    Env = EnvironmentModel(env_config)
+    use_RTI = False
+    x0 = np.array([Crop.X_ns, Crop.X_s, 0])
+    Fmax = opt_config['Fmax']   # Fmax: The maximum allowed input
+    Fmin = opt_config['Fmin']   # Fmin: The minimum allowed input
+    DaysSim = opt_config['DaysSim']
+    Tsim = DaysSim * 24 * 3600   # Tsim: The total time of the whole simulation (closed loop)
+    Ts = opt_config['Ts']       # Ts: the sampling time of one step
+    N_horizon = opt_config['N_horizon'] # N_horizon: The number of steps within the horizon
+    Tf = N_horizon * Ts         # Tf: The total time of the horizon
+    ocp_solver, integrator = opt_setup(Crop=Crop, Env=Env, opt_config=opt_config, energy_prices=energy_prices,x0=x0
+                                       , Fmax=Fmax, Fmin=Fmin, N_horizon=N_horizon, Tf=Tf, RTI=use_RTI)
 
-    # set model
-    model = export_biomass_ode_model(Crop=Crop, uninh_air_vel=0.2)
-    ocp.model = model
+    nx = ocp_solver.acados_ocp.dims.nx
+    nu = ocp_solver.acados_ocp.dims.nu
 
-    Tf = 60
-    nx = model.x.rows()
-    nu = model.u.rows()
-    N  = 10
+    Nsim = 100
+    Nsim = int(np.floor(Tsim/Ts))
+    simX = np.zeros((Nsim+1, nx))
+    simU = np.zeros((Nsim, nu))
 
-    ocp.dims.N = N
+    simX[0,:] = x0
 
-    Q_mat = np.diag([0,0])
-    R_mat = 1*np.diag([1])
+    if use_RTI:
+        t_preparation = np.zeros((Nsim))
+        t_feedback = np.zeros((Nsim))
 
+    else:
+        t = np.zeros((Nsim))
 
+    # do some initial iterations to start with a good initial guess
+    num_iter_initial = 5
+    for _ in range(num_iter_initial):
+        ocp_solver.solve_for_x0(x0_bar = x0)
 
-"""
-# Define CasADi symbols for states and control inputs
-X = SX.sym('X', 2)  # State vector: [X_ns, X_s]
-U = SX.sym('U', 1)  # Control input: [PPFD]
+    # closed loop
+    for i in range(Nsim):
 
-# Define the continuous dynamics model using CasADi
-f_cont_dyn = Function('f_cont_dyn', [X, U], [biomass_ode_mpc_acados(X, U)])
+        if use_RTI:
+            # preparation phase
+            ocp_solver.options_set('rti_phase', 1)
+            status = ocp_solver.solve()
+            t_preparation[i] = ocp_solver.get_stats('time_tot')
 
+            # set initial state
+            ocp_solver.set(0, "lbx", simX[i, :])
+            ocp_solver.set(0, "ubx", simX[i, :])
 
-# Create an acados OCP (Optimal Control Problem) object
-ocp = at.acados_ocp_nlp()
+            # feedback phase
+            ocp_solver.options_set('rti_phase', 2)
+            status = ocp_solver.solve()
+            t_feedback[i] = ocp_solver.get_stats('time_tot')
 
-# Set the model
-ocp.model = f_cont_dyn
+            simU[i, :] = ocp_solver.get(0, "u")
 
-# Configure the OCP settings (horizon, constraints, objective, etc.)
+        else:
+            # solve ocp and get next control input
+            simU[i,:] = ocp_solver.solve_for_x0(x0_bar = simX[i, :])
 
-# Example: Setting the horizon length
-ocp.solver_options.tf = 10  # Prediction horizon
+            t[i] = ocp_solver.get_stats('time_tot')
 
-# Define constraints and objective function based on your requirements
+        # simulate system
+        simX[i+1, :] = integrator.simulate(x=simX[i, :], u=simU[i,:])
 
-# Compile the OCP solver
-ocp_solver = at.acados_ocp_solver(ocp, json_file='acados_ocp.json')
+    # evaluate timings
+    if use_RTI:
+        # scale to milliseconds
+        t_preparation *= 1000
+        t_feedback *= 1000
+        print(f'Computation time in preparation phase in ms: \
+                min {np.min(t_preparation):.3f} median {np.median(t_preparation):.3f} max {np.max(t_preparation):.3f}')
+        print(f'Computation time in feedback phase in ms:    \
+                min {np.min(t_feedback):.3f} median {np.median(t_feedback):.3f} max {np.max(t_feedback):.3f}')
+    else:
+        # scale to milliseconds
+        t *= 1000
+        print(f'Computation time in ms: min {np.min(t):.3f} median {np.median(t):.3f} max {np.max(t):.3f}')
 
-# Solve the MPC problem with initial conditions and reference
-x0 = [Crop.X_ns, Crop.X_s]  # Initial state
-ocp_solver.set(0, 'lbx', x0)  # Set lower bound of states to initial condition
-ocp_solver.set(0, 'ubx', x0)  # Set upper bound of states to initial condition
+    # plot results
+    plot_crop(np.linspace(0, (Tf/N_horizon)*Nsim, Nsim+1), Fmax,Fmin, simU, simX)
 
-# Solve the OCP
-status = ocp_solver.solve()
+    ocp_solver = None
 
-# Retrieve the optimal control input
-u_opt = ocp_solver.get(0, 'u')
-
-
-"""
+if __name__ == "__main__":
+    main()
