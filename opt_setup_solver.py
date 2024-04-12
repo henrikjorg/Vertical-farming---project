@@ -4,21 +4,22 @@ from crop import CropModel
 from environment import EnvironmentModel
 from utilities import *
 import json
-from casadi import SX, vertcat, exp, sum1
+from casadi import SX, vertcat, exp, sum1, dot
 import casadi as ca
 from acados_template import AcadosOcp, AcadosOcpSolver, AcadosSimSolver
 from opt_crop_model import export_biomass_ode_model
 from pendulum_model import export_pendulum_ode_model
 import scipy.linalg
-from energy_prices import energy_price_array
-def opt_setup(Crop, Env, opt_config, energy_prices, x0, Fmax, Fmin, N_horizon, Tf, RTI=False):
+
+INF = 1e12
+def opt_setup(Crop, Env, opt_config, energy_prices, photoperiod_values, x0, Fmax, Fmin, N_horizon, Ts,Tf, ocp_type="minimize_cost", RTI=False):
 
 
     # Create the ocp object
     ocp = AcadosOcp()
 
     # Set model
-    model = export_biomass_ode_model(Crop=Crop, Env=Env)
+    model = export_biomass_ode_model(Crop=Crop, Env=Env, Ts=Ts, N_horizon=N_horizon)
     #model = export_pendulum_ode_model()
 
     ocp.model = model
@@ -31,57 +32,90 @@ def opt_setup(Crop, Env, opt_config, energy_prices, x0, Fmax, Fmin, N_horizon, T
     ocp.dims.N = N_horizon
 
     # Setting up the energy price
-    #energy_price = SX.sym('energy_price', N_horizon)
-    #ocp.model.p = energy_price
-    #ocp.parameter_values = energy_prices
-    #total_cost_expr = sum1(u * energy_price)
-    #ocp.cost.cost_type = 'EXTERNAL'
-    #ocp.cost.cost_expr_ext_cost = total_cost_expr
+    energy_price = SX.sym('energy_price')
+    #photoperiod = SX.sym('photoperiod')
+    #placeholder = SX.sym('placeholder',)
+    #ocp.model.p = vertcat(energy_price, photoperiod)
+    ocp.model.p = energy_price
+    #ocp.parameter_values = np.concatenate((energy_prices, photoperiod_values))
+    ocp.parameter_values = np.array([1])
+    x_ref = np.array(opt_config['x_ref'])
+    Q_mat = np.diag(opt_config['Q_mat'])
+    q_arr = np.array(opt_config['q_arr'])
+    R_mat = np.diag(opt_config['R_mat'])
+    r_arr = np.array(opt_config['r_arr'])
+    print(model.u.size(), energy_price.size())
+    total_cost = model.u * energy_price / (N_horizon * Ts)
+    Cost_mat = np.diag([1e3])
+    #u = ocp.model.u
+    #E_u = dot(u, u)
+    #x = ocp.model.x
+    #E_x = dot(x,x)
     
-    # set cost module
-    ocp.cost.cost_type = 'NONLINEAR_LS'
-    ocp.cost.cost_type_e = 'NONLINEAR_LS'
+    x_diff = model.x - x_ref
+    if ocp_type == "lin_cost":
+        ocp.cost.cost_type = 'EXTERNAL'
+        ocp.cost.cost_type_e = 'EXTERNAL'
+        ocp.model.cost_expr_ext_cost =  total_cost.T @ Cost_mat @ total_cost# ca.dot(q_arr, model.x) #total_cost   #r_arr @ model.u + ca.dot(q_arr, model.x)
+        ocp.model.cost_expr_ext_cost_e = 0#ca.dot(q_arr,model.x) #x_diff.T @ Q_mat @ x_diff #+ ca.dot(q_arr,model.x)
 
-    Q_mat = 2*np.diag([1e3, 1e3, 1e2])*0
-    R_mat = 2*np.diag([1e-2])
+        # set constraints 
+        ocp.constraints.lbu = np.array([Fmin])
+        ocp.constraints.ubu = np.array([Fmax])
+        ocp.constraints.idxbu = np.array([0])
+        ocp.constraints.x0 = x0
 
-    ocp.cost.W = scipy.linalg.block_diag(Q_mat, R_mat)
-    ocp.cost.W_e = Q_mat*0
-
-    ocp.model.cost_y_expr = vertcat(model.x, model.u)
-    ocp.model.cost_y_expr_e = model.x
-    ocp.cost.yref  = np.array([0,0,0,500])
-    ocp.cost.yref_e = np.ones((ny_e, ))
-
-    # set constraints
-    ocp.constraints.lbu = np.array([Fmin])
-    ocp.constraints.ubu = np.array([Fmax])
-    ocp.constraints.idxbu = np.array([0])
-    ocp.constraints.x0 = x0
+        # Constraints for final fresh mass
+        ocp.constraints.lbx_e = np.array([20,350])
+        ocp.constraints.ubx_e = np.array([30,450])
+        ocp.constraints.idxbx_e = np.array([2,3])
     
+    elif ocp_type == "lin_cost_lin_mass":
+        # the 'EXTERNAL' cost type can be used to define general cost terms
+        # NOTE: This leads to additional (exact) hessian contributions when using GAUSS_NEWTON hessian.
+        ocp.cost.cost_type = 'EXTERNAL'
+        ocp.cost.cost_type_e = 'EXTERNAL'
+        ocp.model.cost_expr_ext_cost = model.x.T @ Q_mat @ model.x + model.u.T @ R_mat @ model.u + ca.dot(q_arr, model.x) + r_arr @ model.u 
+        ocp.model.cost_expr_ext_cost_e = model.x.T @ Q_mat @ model.x
+        # set constraints
+        ocp.constraints.lbu = np.array([Fmin])
+        ocp.constraints.ubu = np.array([+Fmax])
+        ocp.constraints.idxbu = np.array([0])
+        ocp.constraints.x0 = x0
+    elif ocp_type == "max_mass_per_cost":
+        # the 'EXTERNAL' cost type can be used to define general cost terms
+        # NOTE: This leads to additional (exact) hessian contributions when using GAUSS_NEWTON hessian.
+        ocp.cost.cost_type = 'EXTERNAL'
+        ocp.cost.cost_type_e = 'EXTERNAL'
+        ocp.model.cost_expr_ext_cost = ca.dot(q_arr, model.x) / (r_arr @ model.u + 1)
+        ocp.model.cost_expr_ext_cost_e = 0#ca.dot(q_arr, model.x)
+        # set constraints
+        ocp.constraints.lbu = np.array([Fmin])
+        ocp.constraints.ubu = np.array([+Fmax])
+        ocp.constraints.idxbu = np.array([0])
+        ocp.constraints.x0 = x0
 
-    ocp.solver_options.qp_solver = 'PARTIAL_CONDENSING_HPIPM' # FULL_CONDENSING_QPOASES
-    ocp.solver_options.hessian_approx = 'GAUSS_NEWTON'
-    ocp.solver_options.integrator_type = 'IRK'
-    ocp.solver_options.sim_method_newton_iter = 10
+    ocp.solver_options.qp_solver =  opt_config['qp_solver']
+    ocp.solver_options.hessian_approx = opt_config['hessian_approx']
+    ocp.solver_options.integrator_type = opt_config['integrator_type']
+    ocp.solver_options.print_level = opt_config['print_level']
+    ocp.solver_options.nlp_solver_type = opt_config['nlp_solver_type']
 
-    if RTI:
-        ocp.solver_options.nlp_solver_type = 'SQP_RTI'
-    else:
-        ocp.solver_options.nlp_solver_type = 'SQP'
+    ocp.solver_options.nlp_solver_max_iter = opt_config['nlp_solver_max_iter']
 
-    ocp.solver_options.qp_solver_cond_N = N_horizon
+    ocp.solver_options.qp_solver_iter_max = opt_config["qp_solver_iter_max"]
+    ocp.solver_options.nlp_solver_tol_stat = opt_config['nlp_solver_tol_stat']
+
 
     # set prediction horizon
     ocp.solver_options.tf = Tf
 
-    solver_json = 'acados_ocp_' + model.name + '.json'
-    acados_ocp_solver = AcadosOcpSolver(ocp, json_file = solver_json)
+    acados_ocp_solver = AcadosOcpSolver(ocp, json_file = 'acados_ocp.json')
 
     # create an integrator with the same settings as used in the OCP solver.
-    acados_integrator = AcadosSimSolver(ocp, json_file = solver_json)
+    acados_integrator = AcadosSimSolver(ocp, json_file = 'acados_ocp.json')
 
-    return acados_ocp_solver, acados_integrator
+    return acados_ocp_solver, acados_integrator, ocp
 def opt_setup_pendulum(Crop, Env, opt_config, energy_prices, x0, Fmax, N_horizon, Tf, RTI=False):
 
 

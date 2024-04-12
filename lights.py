@@ -1,5 +1,5 @@
 import numpy as np
-photoperiod = 24
+photoperiod = 18
 def PAR_generator(t):
     if t % 24 < photoperiod:
         return 60 # Lights on

@@ -9,11 +9,11 @@ import json
 
 # Run parameters
 ignore_environment = True
-days = 25
+days = 20
 plot = True
-eval_every_x_seconds = 60
+eval_every_x_seconds = 1
 env_attributes_to_plot = ['transpiration']
-crop_attributes_to_plot = ['structural_dry_weight_per_plant']
+crop_attributes_to_plot = ['fresh_weight_shoot_per_plant']
 
 
 def load_config(file_path: str) -> dict:
@@ -34,6 +34,8 @@ def initialize_simulation(crop_config: dict, env_config: dict, days: int, eval_e
 
     # Model and initial conditions
     model = Model(crop_config=crop_config, env_config=env_config)
+    model.crop_model.print_attributes()
+    model.env_model.print_attributes()
     env_init = np.array([value for key, value in env_config.items() if key.startswith('init_')])
     crop_init = (model.crop_model.X_ns, model.crop_model.X_s)
     y0 = np.concatenate((env_init, crop_init), axis=None)
@@ -89,11 +91,10 @@ def simulate_external_conditions(hour: int) -> tuple:
     outside_vapour_concentration = np.random.randint(45, 55)
     PPFD = PPFD_generator(hour)
     PAR_flux = PPFD * 0.217  # Conversion factor for the model
-    wind_vel = 0.2
     DAT = hour // 24
     
     climate = (outside_temperature, outside_vapour_concentration, DAT)
-    control_input = (PAR_flux, PPFD, wind_vel)
+    control_input = (PAR_flux, PPFD)
     
     return climate, control_input
 
@@ -110,6 +111,7 @@ def process_solution(sol, model, crop_attrs, env_attrs, cur_index, solutions):
         env_attrs[key][cur_index:cur_index_f] = getattr(model.env_model, key)
 
 def main():
+    start_time = time.time()
     plt.close('all')
     crop_config = load_config('crop_model_config.json')
     env_config = load_config('env_model_config.json')

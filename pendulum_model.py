@@ -64,6 +64,8 @@ def export_pendulum_ode_model() -> AcadosModel:
     cos_theta = cos(theta)
     sin_theta = sin(theta)
     denominator = M + m - m*cos_theta*cos_theta
+    if denominator == 0:
+        denominator = 1e-6
     f_expl = vertcat(v1,
                      dtheta,
                      (-m*l*sin_theta*dtheta*dtheta + m*g*cos_theta*sin_theta+F)/denominator,

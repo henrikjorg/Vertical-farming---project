@@ -37,12 +37,12 @@ class CropModel:
         self.c_car_1: float = config.get('c_car_1', -1.32e-5)
         self.c_car_2: float = config.get('c_car_2', 5.94e-4)
         self.c_car_3: float = config.get('c_car_3', -2.64e-3)
-
+        self.c_epsilon: float = config.get('c_epsilon', 17e-6)
         # Initialize dynamic attributes
         self.DAT: int = 0  # Days After Transplanting
-        self.update_dynamic_attributes()
+        self.set_dynamic_attributes()
 
-    def update_dynamic_attributes(self):
+    def set_dynamic_attributes(self):
         self.fresh_weight_shoot_per_plant: float = self.init_FW_per_plant
         self.fresh_weight_shoot: float = self.fresh_weight_shoot_per_plant * self.plant_density
         self.dry_weight: float = self.fresh_weight_shoot * self.dry_weight_fraction / (1 - self.c_tau)
@@ -84,7 +84,7 @@ class CropModel:
         g_car = self.c_car_1 * T_air**2 + self.c_car_2 * T_air + self.c_car_3
         g_CO2 = 1 / (1 / g_bnd + 1 / g_stm + 1 / g_car)
         Gamma = self.c_Gamma * self.c_q10_Gamma ** ((T_air - 20) / 10)
-        epsilon_biomass = c_epsilon_calibrated(PPFD, T_air) * (CO2_ppm - Gamma) / (CO2_ppm + 2 * Gamma)
+        epsilon_biomass = self.c_epsilon * (CO2_ppm - Gamma) / (CO2_ppm + 2 * Gamma)
         f_phot_max = (epsilon_biomass * PAR_flux * g_CO2 * self.c_w * (CO2_ppm - Gamma)) / (epsilon_biomass * PAR_flux + g_CO2 * self.c_w * (CO2_ppm - Gamma))
         f_phot = (1 - np.exp(-self.c_K * self.LAI)) * f_phot_max
         self.f_phot = f_phot
@@ -93,27 +93,27 @@ class CropModel:
         f_resp = (self.c_resp_sht * (1 - self.c_tau) * X_s + self.c_resp_rt * self.c_tau * X_s) * self.c_q10_resp ** ((T_air - 25) / 10)
         
         self.f_resp = f_resp
-        r_gr = c_gr_max_calibrated(PPFD, T_air) * X_ns / (self.c_gamma * X_s + X_ns) * self.c_q10_gr ** ((T_air - 20) / 10)
+        r_gr = self.c_gr_max * X_ns / (self.c_gamma * X_s + X_ns) * self.c_q10_gr ** ((T_air - 20) / 10)
 
         # For testing purposes
         #r_gr = 1e-6 * self.c_q10_gr ** ((T_air - 20) / 10)
-        dX_ns = self.c_a * f_phot - r_gr * X_s - f_resp - (1 - c_beta_calibrated(PPFD, T_air)) / c_beta_calibrated(PPFD, T_air) * r_gr * X_s
+        dX_ns = self.c_a * f_phot - r_gr * X_s - f_resp - (1 - self.c_beta) / self.c_beta * r_gr * X_s
         dX_s = r_gr * X_s
 
         return dX_ns, dX_s
 
-    def crop_conditions(self, env_state: tuple, crop_state: tuple, climate: tuple, control_input: tuple, crop_model):
+    def crop_conditions(self, env_state: tuple, crop_state: tuple, climate: tuple, control_input: tuple, crop_model, env_model):
         T_air, RH, CO2_air = env_state
     
         X_ns, X_s = crop_state
         self.update_values(X_ns, X_s)
         # Assume additional necessary logic and calculations are implemented here
 
-        PAR_flux, PPFD, wind_vel = control_input
+        PAR_flux, PPFD = control_input
         
         LAI = SLA_to_LAI(SLA=self.SLA, c_tau=self.c_tau, leaf_to_shoot_ratio=self.leaf_to_shoot_ratio, X_s=X_s, X_ns=X_ns)
-        g_bnd = 1 / aerodynamical_resistance_eq(uninh_air_vel=wind_vel, LAI=LAI, leaf_diameter=self.leaf_diameter)
+        g_bnd = 1 / aerodynamical_resistance_eq(uninh_air_vel=env_model.air_vel, LAI=LAI, leaf_diameter=self.leaf_diameter)
         g_stm = 1 / stomatal_resistance_eq(PPFD=PPFD)
         
-        dNS_dt, dS_dt = self.biomass_ode(X_ns, X_s, T_air, CO2_air, PAR_flux, PPFD, g_bnd, g_stm)
+        dNS_dt, dS_dt = self.biomass_ode(X_ns=X_ns, X_s=X_s, T_air=T_air, CO2_air=CO2_air, PAR_flux=PAR_flux, PPFD=PPFD, g_bnd=g_bnd, g_stm=g_stm)
         return np.array([dNS_dt, dS_dt])

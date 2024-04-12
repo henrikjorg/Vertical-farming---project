@@ -77,10 +77,10 @@ class EnvironmentModel:
         LAI = crop_model.LAI
         CAC = crop_model.CAC
         T_out, Chi_out, DAT = climate
-        PAR_flux, PPFD, wind_vel = control_input
+        PAR_flux, PPFD = control_input
 
         r_s = stomatal_resistance_eq(PPFD=PPFD)
-        r_a = aerodynamical_resistance_eq(uninh_air_vel=wind_vel, LAI=LAI, leaf_diameter=crop_model.leaf_diameter)
+        r_a = aerodynamical_resistance_eq(uninh_air_vel=self.air_vel, LAI=LAI, leaf_diameter=crop_model.leaf_diameter)
         T_surface, E, latent_heat_flux = self.find_transpiration(T_air=T_air, Chi_air=Chi_air, LAI=LAI, CAC=CAC, PAR_flux=PAR_flux, r_a=r_a, r_s=r_s, rho_r=crop_model.rho_r)
 
         dT_air_dt = self.temperature_ode(T_air, latent_heat_flux, T_out, PAR_flux, CAC)

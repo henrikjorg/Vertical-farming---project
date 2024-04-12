@@ -19,7 +19,7 @@ class Model:
             env_derivatives = np.array([0,0,0])
         else:
             env_derivatives = self.env_model.env_conditions(env_state, crop_state, climate, control_input, crop_model = self.crop_model)
-        plant_derivatives = self.crop_model.crop_conditions(env_state, crop_state,climate, control_input, crop_model = self.crop_model )
+        plant_derivatives = self.crop_model.crop_conditions(env_state, crop_state,climate, control_input, crop_model = self.crop_model, env_model=self.env_model )
 
         # Combine derivatives
         return np.concatenate((env_derivatives, plant_derivatives), axis=None)

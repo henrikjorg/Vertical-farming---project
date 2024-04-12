@@ -2,10 +2,11 @@
 # parameters are constant except for light intensity
 
 from acados_template import AcadosModel
-from casadi import SX, vertcat, exp
+from casadi import SX, vertcat, exp, sin, cos
 from utilities import *
 import numpy as np
-def export_biomass_ode_model(Crop,Env):
+
+def export_biomass_ode_model(Crop,Env, Ts, N_horizon):
     model_name = 'crop_model_simo'
     # X: State variables [X_ns, X_s]
     # U: Control input [PPFD]
@@ -14,7 +15,8 @@ def export_biomass_ode_model(Crop,Env):
     X_ns = SX.sym('X_ns')
     X_s = SX.sym('X_s')
     z_cumsum = SX.sym('z_cumsum')
-    x = vertcat(X_ns, X_s, z_cumsum)
+    FW_plant = SX.sym('FW_plant')
+    x = vertcat(X_ns, X_s, FW_plant, z_cumsum)
     # Unpack control input
     PPFD = SX.sym('PPFD')
     u = vertcat(PPFD)
@@ -22,33 +24,35 @@ def export_biomass_ode_model(Crop,Env):
     X_ns_dot = SX.sym('X_ns_dot')
     X_s_dot = SX.sym('X_s_dot')
     z_cumsum_dot = SX.sym('z_cumsum_dot')
-    xdot = vertcat(X_ns_dot, X_s_dot, z_cumsum_dot)
+    FW_plant_dot = SX.sym('FW_plant_dot')
+    xdot = vertcat(X_ns_dot, X_s_dot, FW_plant_dot, z_cumsum_dot)
     # Define constants (as provided or calibrated)
     T_air = Env.T_air
     CO2_air = Env.CO2
     PAR_flux = PPFD * 0.217
     # Calculate stomatal and aerodynamic conductances (reciprocals of resistances)
+    LAI = SLA_to_LAI(SLA=Crop.SLA, c_tau=Crop.c_tau, leaf_to_shoot_ratio=Crop.leaf_to_shoot_ratio, X_s=X_s, X_ns=X_ns)
     g_stm = 1 / stomatal_resistance_eq(PPFD)
-    g_bnd = 1 / aerodynamical_resistance_eq(Env.air_vel, Crop.LAI, Crop.leaf_diameter)
-    
+    g_bnd = 1 / aerodynamical_resistance_eq(Env.air_vel, LAI, Crop.leaf_diameter)
     # Dynamics equations adapted for CasADi
     g_car = Crop.c_car_1 * T_air**2 + Crop.c_car_2 * T_air + Crop.c_car_3
     g_CO2 = 1 / (1 / g_bnd + 1 / g_stm + 1 / g_car)
     Gamma = Crop.c_Gamma * Crop.c_q10_Gamma ** ((T_air - 20) / 10)
     
-    epsilon_biomass = c_epsilon_calibrated(PPFD, T_air, use_calibrated=False) * (CO2_air - Gamma) / (CO2_air + 2 * Gamma)
+    epsilon_biomass = Crop.c_epsilon * (CO2_air - Gamma) / (CO2_air + 2 * Gamma)
     f_phot_max = (epsilon_biomass * PAR_flux * g_CO2 * Crop.c_w * (CO2_air - Gamma)) / (epsilon_biomass * PAR_flux + g_CO2 * Crop.c_w * (CO2_air - Gamma))
-    f_phot = (1 - np.exp(-Crop.c_K * Crop.LAI)) * f_phot_max
+    f_phot = (1 - np.exp(-Crop.c_K * LAI)) * f_phot_max
     f_resp = (Crop.c_resp_sht * (1 - Crop.c_tau) * X_s + Crop.c_resp_rt * Crop.c_tau * X_s) * Crop.c_q10_resp ** ((T_air - 25) / 10)
-    
-    r_gr = c_gr_max_calibrated(PPFD, T_air, use_calibrated=False) * X_ns / (Crop.c_gamma * X_s + X_ns) * Crop.c_q10_gr ** ((T_air - 20) / 10)
-    dX_ns = Crop.c_a * f_phot - r_gr * X_s - f_resp - (1 - c_beta_calibrated(PPFD, T_air, use_calibrated=False)) / c_beta_calibrated(PPFD, T_air, use_calibrated=False) * r_gr * X_s
+    dw_to_fw = (1 - Crop.c_tau) / (Crop.dry_weight_fraction * Crop.plant_density)
+    r_gr = Crop.c_gr_max * X_ns / (Crop.c_gamma * X_s + X_ns) * Crop.c_q10_gr ** ((T_air - 20) / 10)
+    dX_ns = Crop.c_a * f_phot - r_gr * X_s - f_resp #- (1 - Crop.c_beta) / Crop.c_beta * r_gr * X_s
     dX_s = r_gr * X_s
     #dt = SX.sym('dt')  # dt = 1 for regular steps, dt = -z_daily_cumsum at the start of each day to reset
 
     f_expl = vertcat(dX_ns,
                      dX_s,
-                     z_cumsum + u)
+                     (dX_ns + dX_s) * dw_to_fw,
+                     PPFD/(Ts*N_horizon))
     f_impl = xdot - f_expl
 
     model = AcadosModel()
