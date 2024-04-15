@@ -110,7 +110,7 @@ def opt_setup(Crop, Env, opt_config, energy_prices, photoperiod_values, x0, Fmax
     # set prediction horizon
     ocp.solver_options.tf = Tf
 
-    acados_ocp_solver = AcadosOcpSolver(ocp, json_file = 'acados_ocp.json')
+    acados_ocp_solver = AcadosOcpSolver(ocp, json_file = 'mpc_optimization/acados_ocp.json')
 
     # create an integrator with the same settings as used in the OCP solver.
     acados_integrator = AcadosSimSolver(ocp, json_file = 'acados_ocp.json')

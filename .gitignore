@@ -170,3 +170,4 @@ mocp_sol.json
 linear_mass_ocp.json
 acados_ocp_pendulum_ode.json
 acados_ocp_pendulum.json
+mpc_optimization/acados_ocp.json

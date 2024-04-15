@@ -18,9 +18,12 @@ from mpc_optimization.opt_utils import plot_crop, generate_energy_price, generat
 # import acados.interfaces.acados_template as at
 def load_config(file_path: str) -> dict:
     """Load configuration from a JSON file."""
-    with open(file_path, 'r') as file:
-        return json.load(file)
-    
+    if file_path == 'opt_config.json':
+        with open('mpc_optimization/' + file_path, 'r') as file:
+            return json.load(file)
+    else:
+        with open(file_path, 'r') as file:
+            return json.load(file)
 def main():
     crop_config = load_config('crop_model_config.json')
     env_config = load_config('env_model_config.json')
