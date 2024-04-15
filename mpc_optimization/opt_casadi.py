@@ -52,7 +52,7 @@ def main():
     Crop = CropModel(crop_config)
     Env = EnvironmentModel(env_config)
     use_RTI = False
-    x0 = np.array([Crop.X_ns, Crop.X_s, Crop.fresh_weight_shoot_per_plant, 0,0,0,0])
+    x0 = np.array([Crop.X_ns, Crop.X_s, Crop.fresh_weight_shoot_per_plant, 0,0,0])
 
     ocp_solver, integrator, ocp = opt_setup(Crop=Crop, Env=Env, opt_config=opt_config, energy_prices=energy_prices, photoperiod_values=photoperiod_values, x0=x0
                                        , Fmax=Fmax, Fmin=Fmin, N_horizon=N_horizon, Days_horizon = Days_horizon,Ts=Ts, Tf=Tf, ocp_type=ocp_type,RTI=use_RTI)

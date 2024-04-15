@@ -17,7 +17,6 @@ def export_biomass_ode_model(Crop,Env, Ts, N_horizon, Days_horizon, light_percen
     z_cumsum = SX.sym('z_cumsum')
     FW_plant = SX.sym('FW_plant')
     Tot_cost = SX.sym('Tot_cost')
-    Obey_pp  = SX.sym('Obey_pp')
     DLI  = SX.sym('DLI')
 
     
@@ -30,7 +29,7 @@ def export_biomass_ode_model(Crop,Env, Ts, N_horizon, Days_horizon, light_percen
     energy_price = SX.sym('energy_price')
     photoperiod = SX.sym('photoperiod')
 
-    x = vertcat(X_ns, X_s, FW_plant, DLI, Tot_cost, Obey_pp, z_cumsum)
+    x = vertcat(X_ns, X_s, FW_plant, DLI, Tot_cost, z_cumsum)
     u = vertcat(PPFD)
     z =SX.sym('z')
 
@@ -39,9 +38,8 @@ def export_biomass_ode_model(Crop,Env, Ts, N_horizon, Days_horizon, light_percen
     z_cumsum_dot = SX.sym('z_cumsum_dot')
     FW_plant_dot = SX.sym('FW_plant_dot')
     Tot_cost_dot = SX.sym('Tot_cost_dot')
-    Obey_pp_dot  = SX.sym('Obey_pp_dot')
     DLI_dot  = SX.sym('DLI_dot')
-    xdot = vertcat(X_ns_dot, X_s_dot, FW_plant_dot, DLI_dot, Tot_cost_dot, Obey_pp_dot, z_cumsum_dot)
+    xdot = vertcat(X_ns_dot, X_s_dot, FW_plant_dot, DLI_dot, Tot_cost_dot, z_cumsum_dot)
     # Define constants (as provided or calibrated)
     T_air = Env.T_air
     CO2_air = Env.CO2
@@ -70,7 +68,6 @@ def export_biomass_ode_model(Crop,Env, Ts, N_horizon, Days_horizon, light_percen
                      (dX_ns + dX_s) * dw_to_fw,           # Fresh weight of the shoot of one plant
                      (photoperiod-1)*(-1)*PPFD/(Ts*Days_horizon)-photoperiod*0.001*DLI,#PPFD/(Ts*N_horizon),                 # Average PPFD per day
                      PPFD*energy_price/(N_horizon * Ts),  # Average hourly cost of energy for the prediction horizon
-                     PPFD*photoperiod/(100 * N_horizon * Ts),   # Assuring no light is on during dark period
                      PPFD/(Ts*N_horizon)* light_percent)  # The average PPFD during light period
     
     f_impl = xdot - f_expl

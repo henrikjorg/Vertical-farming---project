@@ -105,7 +105,7 @@ def plot_crop(t, u_max,u_min, U, X_true, X_est=None, Y_measured=None,energy_pric
     plt.xlim(days[0], days[-1])
     plt.grid()
 
-    states_lables = ['$X_ns$', '$X_s$', '$FW_per_plant$', '$DLI$', '$Total Cost$', '$PP$', '$AVG PPFD$']
+    states_lables = ['$X_ns$', '$X_s$', '$FW_per_plant$', '$DLI$', '$Total Cost$', '$AVG PPFD$']
 
     for i in range(nx):
         plt.subplot(nx+2, 1, i+3)

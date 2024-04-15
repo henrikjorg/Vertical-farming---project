@@ -29,14 +29,13 @@ def opt_setup(Crop, Env, opt_config, energy_prices, photoperiod_values, x0, Fmax
 
     ocp.dims.N = N_horizon
 
-    x_ref = np.array([0,0,0,0,0,0,0])#np.array(opt_config['x_ref'])
+    x_ref = np.array([0,0,0,0,0,0])#np.array(opt_config['x_ref'])
     Q_mat = np.diag([0, # NS mass                   0
                      0, # S mass                    1
                      0, # Fresh mass one shoot      2
-                     0, # DLI                       3
+                     0, # DLI (one pp per day!)     3
                      1, # Average hourly cost       4
-                     0, # Constraint on dark period 5
-                     0])# Avg PPFD during photoperiod  6
+                     0])# Avg PPFD during photoperiod  5
     #Q_mat = np.diag(opt_config['Q_mat'])
     q_arr = np.array([0,0,0,0,0,0,0])#np.array(opt_config['q_arr'])
     R_mat = np.diag(opt_config['R_mat'])
