@@ -6,7 +6,7 @@ from casadi import SX, vertcat, exp, sin, cos
 from utilities import *
 import numpy as np
 
-def export_biomass_ode_model(Crop,Env, Ts, N_horizon):
+def export_biomass_ode_model(Crop,Env, Ts, N_horizon, Days_horizon, light_percent):
     model_name = 'crop_model_simo'
     # X: State variables [X_ns, X_s]
     # U: Control input [PPFD]
@@ -16,16 +16,32 @@ def export_biomass_ode_model(Crop,Env, Ts, N_horizon):
     X_s = SX.sym('X_s')
     z_cumsum = SX.sym('z_cumsum')
     FW_plant = SX.sym('FW_plant')
-    x = vertcat(X_ns, X_s, FW_plant, z_cumsum)
+    Tot_cost = SX.sym('Tot_cost')
+    Obey_pp  = SX.sym('Obey_pp')
+    DLI  = SX.sym('DLI')
+
+    
+    
     # Unpack control input
     PPFD = SX.sym('PPFD')
+    
+
+    # Parameters
+    energy_price = SX.sym('energy_price')
+    photoperiod = SX.sym('photoperiod')
+
+    x = vertcat(X_ns, X_s, FW_plant, DLI, Tot_cost, Obey_pp, z_cumsum)
     u = vertcat(PPFD)
+    z =SX.sym('z')
 
     X_ns_dot = SX.sym('X_ns_dot')
     X_s_dot = SX.sym('X_s_dot')
     z_cumsum_dot = SX.sym('z_cumsum_dot')
     FW_plant_dot = SX.sym('FW_plant_dot')
-    xdot = vertcat(X_ns_dot, X_s_dot, FW_plant_dot, z_cumsum_dot)
+    Tot_cost_dot = SX.sym('Tot_cost_dot')
+    Obey_pp_dot  = SX.sym('Obey_pp_dot')
+    DLI_dot  = SX.sym('DLI_dot')
+    xdot = vertcat(X_ns_dot, X_s_dot, FW_plant_dot, DLI_dot, Tot_cost_dot, Obey_pp_dot, z_cumsum_dot)
     # Define constants (as provided or calibrated)
     T_air = Env.T_air
     CO2_air = Env.CO2
@@ -49,19 +65,25 @@ def export_biomass_ode_model(Crop,Env, Ts, N_horizon):
     dX_s = r_gr * X_s
     #dt = SX.sym('dt')  # dt = 1 for regular steps, dt = -z_daily_cumsum at the start of each day to reset
 
-    f_expl = vertcat(dX_ns,
-                     dX_s,
-                     (dX_ns + dX_s) * dw_to_fw,
-                     PPFD/(Ts*N_horizon))
+    f_expl = vertcat(dX_ns,                               # Non-structural dry weight per m^2
+                     dX_s,                                # Structural dry weight per m^2
+                     (dX_ns + dX_s) * dw_to_fw,           # Fresh weight of the shoot of one plant
+                     (photoperiod-1)*(-1)*PPFD/(Ts*Days_horizon)-photoperiod*0.001*DLI,#PPFD/(Ts*N_horizon),                 # Average PPFD per day
+                     PPFD*energy_price/(N_horizon * Ts),  # Average hourly cost of energy for the prediction horizon
+                     PPFD*photoperiod/(100 * N_horizon * Ts),   # Assuring no light is on during dark period
+                     PPFD/(Ts*N_horizon)* light_percent)  # The average PPFD during light period
+    
     f_impl = xdot - f_expl
 
     model = AcadosModel()
 
-    model.f_impl_expr = f_impl
-    model.f_expl_expr = f_expl
+    model.f_impl_expr = vertcat(f_impl, z - PPFD*photoperiod)
+    model.f_expl_expr =f_expl
     model.x = x
     model.xdot = xdot
     model.u = u
+    model.p = vertcat(energy_price, photoperiod)
+    model.z = z# PPFD * photoperiod
     model.name = model_name
     # Return state derivatives
     return model

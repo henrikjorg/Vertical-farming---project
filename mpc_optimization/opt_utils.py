@@ -33,7 +33,7 @@ import numpy as np
 from acados_template import latexify_plot
 
 
-def plot_crop(t, u_max,u_min, U, X_true, X_est=None, Y_measured=None, latexify=False, plt_show=True, X_true_label=None):
+def plot_crop(t, u_max,u_min, U, X_true, X_est=None, Y_measured=None,energy_price_array = None, latexify=False, plt_show=True, X_true_label=None):
     """
     Params:
         t: time values of the discretization
@@ -61,8 +61,31 @@ def plot_crop(t, u_max,u_min, U, X_true, X_est=None, Y_measured=None, latexify=F
         t_mhe = np.linspace(N_mhe * Ts, Tf, N_sim-N_mhe)
         days_mhe = t_mhe / (60*60*24)
 
-    plt.subplot(nx+1, 1, 1)
+
+    # Plotting the energy prices
+    plt.subplot(nx+2, 1, 1)
     days = t / (60*60*24)
+    line, = plt.step(days, np.append([energy_price_array[0]], energy_price_array))
+    if X_true_label is not None:
+        line.set_label(X_true_label)
+    else:
+        line.set_color('r')
+
+    plt.ylabel('$price$')
+    plt.xlabel('$t$')
+    zmin = np.min(energy_price_array)
+    zmax = np.max(energy_price_array)
+    if zmin < 0:
+        plt.ylim([1.2*zmin, 1.2*zmax])
+    elif zmin == 0:
+        plt.ylim([-10, 1.2*zmax])
+    else:
+        plt.ylim([0.8*zmin, 1.2*zmax])
+    plt.xlim(days[0], days[-1])
+    plt.grid()
+
+    # Plotting the input
+    plt.subplot(nx+2, 1, 2)
     line, = plt.step(days, np.append([U[0]], U))
     if X_true_label is not None:
         line.set_label(X_true_label)
@@ -82,10 +105,10 @@ def plot_crop(t, u_max,u_min, U, X_true, X_est=None, Y_measured=None, latexify=F
     plt.xlim(days[0], days[-1])
     plt.grid()
 
-    states_lables = ['$X_ns$', '$X_s$', '$FW_per_plant$', '$t$']
+    states_lables = ['$X_ns$', '$X_s$', '$FW_per_plant$', '$DLI$', '$Total Cost$', '$PP$', '$AVG PPFD$']
 
     for i in range(nx):
-        plt.subplot(nx+1, 1, i+2)
+        plt.subplot(nx+2, 1, i+3)
         line, = plt.plot(days, X_true[:, i], label='true')
         if X_true_label is not None:
             line.set_label(X_true_label)
@@ -104,23 +127,24 @@ def plot_crop(t, u_max,u_min, U, X_true, X_est=None, Y_measured=None, latexify=F
 
     if plt_show:
         plt.show()
-def generate_energy_price(N_horizon):
-    
+def generate_energy_price(N_horizon, Nsim = None):
+    def f(i):
+        return 10 + i % 5
     energy_price_array = np.ones((N_horizon))
-    sum = 0
     for i in range(N_horizon):
-        if i % 24 > 16:
-            energy_price_array[i] = 10000000000
-        else:
-            energy_price_array[i] = 10 + i % 5
-        
-        sum += energy_price_array[i] 
-    average_price = sum/N_horizon
+
+        energy_price_array[i] = f(i)
+
     #energy_price_array = energy_price_array / average_price
     print('-'*20)
     print('The energy price array is: ',energy_price_array)
     print('-'*20)
-    return energy_price_array
+    if Nsim is None:
+        return energy_price_array, None
+    closed_loop_energy_price_array = np.ones((Nsim))
+    for i in range(Nsim):
+        closed_loop_energy_price_array[i] = f(i)
+    return energy_price_array, closed_loop_energy_price_array
 
 def generate_photoperiod_values(photoperiod: int, darkperiod: int, N_horizon: int) -> np.array:
     """
@@ -144,7 +168,7 @@ def generate_photoperiod_values(photoperiod: int, darkperiod: int, N_horizon: in
     # Continue appending values to the sequence until its length reaches N_horizon
     while len(sequence) < N_horizon:
         # Append 1s for the photoperiod
-        sequence += [1] * photoperiod
+        sequence += [0] * photoperiod
         # Ensure the sequence does not exceed N_horizon
         if len(sequence) >= N_horizon:
             break

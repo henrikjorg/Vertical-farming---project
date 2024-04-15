@@ -1,3 +1,7 @@
+import sys
+ 
+# setting path
+sys.path.append('../VF-SIMULATION')
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -8,55 +12,59 @@ import json
 from casadi import SX, vertcat, exp, sum1
 import casadi as ca
 from acados_template import AcadosOcp, AcadosOcpSolver
-from opt_crop_model import export_biomass_ode_model
-from opt_setup_solver import opt_setup
-from opt_utils import plot_crop, generate_energy_price, generate_photoperiod_values, print_ocp_setup_details
+from mpc_optimization.opt_crop_model import export_biomass_ode_model
+from mpc_optimization.opt_setup_solver import opt_setup
+from mpc_optimization.opt_utils import plot_crop, generate_energy_price, generate_photoperiod_values, print_ocp_setup_details
 # import acados.interfaces.acados_template as at
 def load_config(file_path: str) -> dict:
     """Load configuration from a JSON file."""
     with open(file_path, 'r') as file:
         return json.load(file)
-
+    
 def main():
     crop_config = load_config('crop_model_config.json')
     env_config = load_config('env_model_config.json')
     opt_config = load_config('opt_config.json')
     ocp_type = opt_config['ocp_type']
-    N_horizon = opt_config['N_horizon']
     photoperiod = opt_config['photoperiod']
     darkperiod = opt_config['darkperiod']
     closed_loop = opt_config['closed_loop']
-    energy_prices = generate_energy_price(N_horizon=N_horizon)
-    photoperiod_values = generate_photoperiod_values(photoperiod=photoperiod, darkperiod=darkperiod, N_horizon=N_horizon)
-    Crop = CropModel(crop_config)
-    Env = EnvironmentModel(env_config)
-    use_RTI = False
-    x0 = np.array([Crop.X_ns, Crop.X_s, Crop.fresh_weight_shoot_per_plant, 0])
+    
     Fmax = opt_config['Fmax']   # Fmax: The maximum allowed input
     Fmin = opt_config['Fmin']   # Fmin: The minimum allowed input
     DaysSim = opt_config['DaysSim']
     Tsim = DaysSim * 24 * 3600   # Tsim: The total time of the whole simulation (closed loop)
     Ts = opt_config['Ts']       # Ts: the sampling time of one step
     N_horizon = opt_config['N_horizon'] # N_horizon: The number of steps within the horizon
+    Days_horizon = N_horizon / 24
     Tf = N_horizon * Ts         # Tf: The total time of the horizon
+    if closed_loop:
+        Nsim = int(np.floor(Tsim/Ts))
+        
+        energy_prices, closed_loop_prices = generate_energy_price(N_horizon=N_horizon, Nsim=Nsim)
+    else:
+        Nsim = N_horizon
+        energy_prices, _  = generate_energy_price(N_horizon=N_horizon)
+    photoperiod_values = generate_photoperiod_values(photoperiod=photoperiod, darkperiod=darkperiod, N_horizon=N_horizon)
+    Crop = CropModel(crop_config)
+    Env = EnvironmentModel(env_config)
+    use_RTI = False
+    x0 = np.array([Crop.X_ns, Crop.X_s, Crop.fresh_weight_shoot_per_plant, 0,0,0,0])
+
     ocp_solver, integrator, ocp = opt_setup(Crop=Crop, Env=Env, opt_config=opt_config, energy_prices=energy_prices, photoperiod_values=photoperiod_values, x0=x0
-                                       , Fmax=Fmax, Fmin=Fmin, N_horizon=N_horizon,Ts=Ts, Tf=Tf, ocp_type=ocp_type,RTI=use_RTI)
+                                       , Fmax=Fmax, Fmin=Fmin, N_horizon=N_horizon, Days_horizon = Days_horizon,Ts=Ts, Tf=Tf, ocp_type=ocp_type,RTI=use_RTI)
     for i in range(N_horizon):
-        ocp_solver.set(i, 'p', energy_prices[i])
+        ocp_solver.set(i, 'p', np.array([energy_prices[i], photoperiod_values[i]]))
+        #ocp_solver.set(N_horizon+i, 'p', photoperiod_values[i])
     # Printing the OCP constraints and cost function (if available)
     print_ocp_setup_details(ocp)
     nx = ocp_solver.acados_ocp.dims.nx
     nu = ocp_solver.acados_ocp.dims.nu
-
     if not closed_loop: # Open loop
-        Nsim = N_horizon
-        N = N_horizon
+        
         simX = np.zeros((Nsim+1, nx))
         simU = np.zeros((Nsim, nu))
-
         simX[0,:] = x0
-        simX = np.zeros((N+1, nx))
-        simU = np.zeros((N, nu))
 
         status = ocp_solver.solve()
         ocp_solver.print_statistics() # encapsulates: stat = ocp_solver.get_stats("statistics")
@@ -65,17 +73,16 @@ def main():
             raise Exception(f'acados returned status {status}.')
 
         # get solution
-        for i in range(N):
+        for i in range(Nsim):
             simX[i,:] = ocp_solver.get(i, "x")
             simU[i,:] = ocp_solver.get(i, "u")
-        simX[N,:] = ocp_solver.get(N, "x")
+        simX[Nsim,:] = ocp_solver.get(Nsim, "x")
         print(ocp_solver.get_cost())
-        plot_crop(np.linspace(0, Tf, N+1), Fmax, Fmin, simU, simX, latexify=False)
+        plot_crop(np.linspace(0, Tf, Nsim+1), Fmax, Fmin, simU, simX, energy_price_array=energy_prices,latexify=False)
     else: # Closed loop
 
         Nsim = int(np.floor(Tsim/Ts))
-        N = Nsim
-        print(N)
+
         #raise ValueError()
         simX = np.zeros((Nsim+1, nx))
         simU = np.zeros((Nsim, nu))
@@ -96,7 +103,8 @@ def main():
 
         # closed loop
         for i in range(Nsim):
-
+            print(simX[i,:])
+            print('*'*20)
             if use_RTI:
                 # preparation phase
                 ocp_solver.options_set('rti_phase', 1)
@@ -136,6 +144,6 @@ def main():
             # scale to milliseconds
             t *= 1000
             print(f'Computation time in ms: min {np.min(t):.3f} median {np.median(t):.3f} max {np.max(t):.3f}')
-        plot_crop(np.linspace(0, Tsim, N+1), Fmax, Fmin, simU, simX, latexify=False)
+        plot_crop(np.linspace(0, Tsim, Nsim+1), Fmax, Fmin, simU, simX,energy_price_array = closed_loop_prices ,latexify=False)
 if __name__ == "__main__":
     main()
