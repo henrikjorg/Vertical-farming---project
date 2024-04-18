@@ -14,10 +14,14 @@ def opt_setup(Crop, Env, opt_config, energy_prices, photoperiod_values, x0, Fmax
 
     # Create the ocp object
     ocp = AcadosOcp()
-    light_percent = opt_config['photoperiod'] / (opt_config['photoperiod'] + opt_config['darkperiod'])
+    photoperiod_length = opt_config['photoperiod_length'] 
+    darkperiod_length = opt_config['darkperiod_length']
+    min_DLI = opt_config['min_DLI']
+    max_DLI = opt_config['max_DLI']
     # Set model
-    model = export_biomass_ode_model(Crop=Crop, Env=Env, Ts=Ts, N_horizon=N_horizon, Days_horizon=Days_horizon, light_percent=light_percent)
-    ocp.parameter_values = np.array([1,1])
+    model = export_biomass_ode_model(Crop=Crop, Env=Env, Ts=Ts, N_horizon=N_horizon, Days_horizon=Days_horizon,
+                                      photoperiod_length=photoperiod_length, darkperiod_length=darkperiod_length, min_DLI=min_DLI)
+    ocp.parameter_values = np.array([1,1, 1])
     #model = export_pendulum_ode_model()
 
     ocp.model = model
@@ -29,13 +33,22 @@ def opt_setup(Crop, Env, opt_config, energy_prices, photoperiod_values, x0, Fmax
 
     ocp.dims.N = N_horizon
 
-    x_ref = np.array([0,0,0,0,0,0])#np.array(opt_config['x_ref'])
+    x_ref = np.array([0,    # NS mass
+                      0,    #S mass
+                      10,    # Fresh mass shoot
+                      0,    # DLI (one pp per day!)
+                      0,    # DLI lower
+                      0,    # Average hourly cost
+                      0])   # Avg PPFD during pp
+    #x_ref = np.array(opt_config['x_ref'])
     Q_mat = np.diag([0, # NS mass                   0
                      0, # S mass                    1
-                     0, # Fresh mass one shoot      2
-                     0, # DLI (one pp per day!)     3
-                     1, # Average hourly cost       4
-                     0])# Avg PPFD during photoperiod  5
+                     1, # Fresh mass one shoot      2
+                     0, # DLI uppert (one pp per day!)     3
+                     0, # DLI lower bound           4
+                     1, # Average hourly cost       5
+                     0])# Avg PPFD during photoperiod  6
+    
     #Q_mat = np.diag(opt_config['Q_mat'])
     q_arr = np.array([0,0,0,0,0,0,0])#np.array(opt_config['q_arr'])
     R_mat = np.diag(opt_config['R_mat'])
@@ -55,17 +68,31 @@ def opt_setup(Crop, Env, opt_config, energy_prices, photoperiod_values, x0, Fmax
         ocp.constraints.idxbu = np.array([0])
         ocp.constraints.x0 = x0
         # Constraints on the intermediate stages
-        #       No light during dark period: 0,0 state_ind 5
         #       DLI constraint: -100, 
-        #ocp.constraints.lbx = np.array([0])
-        #ocp.constraints.ubx = np.array([0])
-        #ocp.constraints.idxbx = np.array([5])
+        ocp.constraints.lbx = np.array([-1, -1])
+        ocp.constraints.ubx = np.array([max_DLI, 10000])
+        ocp.constraints.idxbx = np.array([3, 4])
+        #
+        #ocp.constraints.lbx = np.array([-1, -1])
+        #ocp.constraints.ubx = np.array([max_DLI,10000])
+        #ocp.constraints.idxbx = np.array([3,4])
+
+        
+        #
+        #
+
+        ocp.constraints.lh = np.array([0])
+        ocp.constraints.uh = np.array([0])
+        ocp.constraints.lh_0 = np.array([0])
+        ocp.constraints.uh_0 = np.array([0])
+        #ocp.constraints.lh_e = np.array([0])
+        #ocp.constraints.uh_e = np.array([0])
         # Constraints for final fresh mass
-        #       DLI:                 100,500 state_ind 6
+        #       DLI:                 100,500 state_ind 5
         #       Fresh biomass                k,l state_ind 2
-        ocp.constraints.lbx_e = np.array([10])
-        ocp.constraints.ubx_e = np.array([2000])
-        ocp.constraints.idxbx_e = np.array([2])
+        ocp.constraints.lbx_e = np.array([-1,-1])
+        ocp.constraints.ubx_e = np.array([max_DLI, 10000])
+        ocp.constraints.idxbx_e = np.array([3, 4])
 
         
     
@@ -98,12 +125,12 @@ def opt_setup(Crop, Env, opt_config, energy_prices, photoperiod_values, x0, Fmax
     ocp.solver_options.hessian_approx = opt_config['hessian_approx']
     ocp.solver_options.integrator_type = opt_config['integrator_type']
     ocp.solver_options.print_level = opt_config['print_level']
-    ocp.solver_options.nlp_solver_type = opt_config['nlp_solver_type']
+    #ocp.solver_options.nlp_solver_type = opt_config['nlp_solver_type']
 
-    ocp.solver_options.nlp_solver_max_iter = opt_config['nlp_solver_max_iter']
+    #ocp.solver_options.nlp_solver_max_iter = opt_config['nlp_solver_max_iter']
 
-    ocp.solver_options.qp_solver_iter_max = opt_config["qp_solver_iter_max"]
-    ocp.solver_options.nlp_solver_tol_stat = opt_config['nlp_solver_tol_stat']
+    #ocp.solver_options.qp_solver_iter_max = opt_config["qp_solver_iter_max"]
+    #ocp.solver_options.nlp_solver_tol_stat = opt_config['nlp_solver_tol_stat']
 
 
     # set prediction horizon
@@ -112,6 +139,6 @@ def opt_setup(Crop, Env, opt_config, energy_prices, photoperiod_values, x0, Fmax
     acados_ocp_solver = AcadosOcpSolver(ocp, json_file = 'mpc_optimization/acados_ocp.json')
 
     # create an integrator with the same settings as used in the OCP solver.
-    acados_integrator = AcadosSimSolver(ocp, json_file = 'acados_ocp.json')
+    acados_integrator = AcadosSimSolver(ocp, json_file = 'mpc_optimization/acados_ocp.json')
 
     return acados_ocp_solver, acados_integrator, ocp
