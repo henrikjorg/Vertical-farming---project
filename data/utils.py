@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 
 def fetch_electricity_prices(file_name, length, length_sim = None, start_datetime='2016-01-01 Kl. 01-02', column='NO1'):
+    # length_sim = None imply that the MPC is set to open loop. If length sim is not None, then the function returns an array corresponding to the simulation
     data = pd.read_csv(file_name, sep=';', index_col='Dato/klokkeslett')
 
     # Finn starttime in the dataset
@@ -21,11 +22,10 @@ def fetch_electricity_prices(file_name, length, length_sim = None, start_datetim
     # Konverter til numpy array og returner
     if length_sim is None:
         return np.array(prices, dtype=float), None
-    start_index = data.index.get_loc(start_datetime)
     # Kontroller at det er nok data tilgjengelig fra startpunktet
-    if start_index + length > len(data):
+    if start_index + length +length_sim > len(data):
         raise ValueError("Not enough available length from start to end date (closed loop).")
-    prices_sim = data.loc[data.index[start_index:start_index + length_sim], column].values
+    prices_sim = data.loc[data.index[start_index:start_index + length_sim + length], column].values
     return prices, prices_sim
 
 def fetch_weather_data(file_name, start_datetime='2023-01-01T00:00:00.000Z', end_datetime='2024-01-01T00:00:00.000Z'):

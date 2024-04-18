@@ -1,11 +1,11 @@
 {
     "Days": 10,
-    "N_horizon": 480,
+    "N_horizon": 24,
     "Fmax": 600,
     "Fmin": 0,
     "min_DLI": 300,
     "max_DLI": 500,
-    "DaysSim": 20,
+    "DaysSim": 1,
     "Ts":   3600,
     "ocp_type": "lin_cost", 
     "photoperiod_length": 18,
