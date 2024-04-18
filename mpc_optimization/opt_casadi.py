@@ -14,7 +14,8 @@ import casadi as ca
 from acados_template import AcadosOcp, AcadosOcpSolver
 from mpc_optimization.opt_crop_model import export_biomass_ode_model
 from mpc_optimization.opt_setup_solver import opt_setup
-from mpc_optimization.opt_utils import plot_crop, generate_energy_price, generate_photoperiod_values, print_ocp_setup_details, fetch_electricity_prices, generate_end_of_day_array
+from mpc_optimization.opt_utils import plot_crop, generate_energy_price, generate_photoperiod_values, print_ocp_setup_details, generate_end_of_day_array
+from ..data.utils import fetch_electricity_prices
 # import acados.interfaces.acados_template as at
 def load_config(file_path: str) -> dict:
     """Load configuration from a JSON file."""
@@ -54,7 +55,7 @@ def main():
         #raise ValueError
     else:
         Nsim = N_horizon
-        energy_prices, _  = fetch_electricity_prices('data/Spotprices_norway.csv',length = N_horizon)#generate_energy_price(N_horizon=N_horizon)
+        energy_prices, _  = fetch_electricity_prices('Spotprices_norway.csv',length = N_horizon)#generate_energy_price(N_horizon=N_horizon)
         photoperiod_values, _ = generate_photoperiod_values(photoperiod_length=photoperiod_length, darkperiod_length=darkperiod_length, N_horizon=N_horizon)
         end_of_day_values, _ = generate_end_of_day_array(photoperiod_length=photoperiod_length, darkperiod_length=darkperiod_length, N_horizon=N_horizon)
 

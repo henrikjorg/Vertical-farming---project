@@ -223,30 +223,3 @@ def print_ocp_setup_details(ocp):
     
     # Additional details if needed
     # This part can be extended based on what specific details are crucial for your debugging process.
-def fetch_electricity_prices(file_path, length, length_sim = None, start_datetime='2016-01-01 Kl. 01-02', column='NO1'):
-
-    data = pd.read_csv(file_path, sep=';', index_col='Dato/klokkeslett')
-
-    # Finn starttime in the dataset
-    if start_datetime not in data.index:
-        raise ValueError("Start-date does not exist in the dataset (2016-01-01 01-02 is the earliest and 2014-04-15 23-00 is the latest).")
-
-    # Find indeks for startdate
-    start_index = data.index.get_loc(start_datetime)
-
-    # Kontroller at det er nok data tilgjengelig fra startpunktet
-    if start_index + length > len(data):
-        raise ValueError("Not enough available length from start to end date.")
-
-    # Hent data fra den angitte kolonnen og lengden
-    prices = data.loc[data.index[start_index:start_index + length], column].values
-
-    # Konverter til numpy array og returner
-    if length_sim is None:
-        return np.array(prices, dtype=float), None
-    start_index = data.index.get_loc(start_datetime)
-    # Kontroller at det er nok data tilgjengelig fra startpunktet
-    if start_index + length_sim + length > len(data):
-        raise ValueError("Not enough available length from start to end date (closed loop).")
-    prices_sim = data.loc[data.index[start_index:start_index + length_sim + length], column].values
-    return prices, prices_sim
