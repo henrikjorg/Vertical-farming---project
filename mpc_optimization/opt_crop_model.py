@@ -7,7 +7,7 @@ from utilities import *
 import numpy as np
 from math import exp
 
-def export_biomass_ode_model(Crop,Env, Ts, N_horizon, Days_horizon, photoperiod_length, darkperiod_length, min_DLI):
+def export_biomass_ode_model(Crop,Env, Ts, N_horizon, photoperiod_length, darkperiod_length, min_DLI):
     model_name = 'crop_model_simo'
     # X: State variables [X_ns, X_s]
     # U: Control input [PPFD]
@@ -18,7 +18,7 @@ def export_biomass_ode_model(Crop,Env, Ts, N_horizon, Days_horizon, photoperiod_
     z_cumsum = SX.sym('z_cumsum')
     FW_plant = SX.sym('FW_plant')
     Tot_cost = SX.sym('Tot_cost')
-    DLI_upper  = SX.sym('DLI_upper')
+    DLI_start_of_day  = SX.sym('DLI_start_of_day')
     DLI_lower = SX.sym('DLI_lower')
     
     
@@ -31,21 +31,21 @@ def export_biomass_ode_model(Crop,Env, Ts, N_horizon, Days_horizon, photoperiod_
     photoperiod = SX.sym('photoperiod')
     end_of_day = SX.sym('end_of_day')
 
-    x = vertcat(X_ns, X_s, FW_plant, DLI_upper, DLI_lower, Tot_cost, z_cumsum)
+    x = vertcat(X_ns, X_s, FW_plant, DLI_start_of_day, DLI_lower, Tot_cost, z_cumsum)
     u = vertcat(PPFD)
     z_dp_constraint =SX.sym('z_dp_constraint') # Ensuring no light during dark period
     z_min_DLI_constraint = SX.sym('z_min_DLI_constraint')
+    z_DLI_end_of_day = SX.sym('z_DLI_end_of_day')
     last_u = SX.sym('last_u')             # Ensuring minimum DLI
-    z = vertcat(z_dp_constraint)
 
     X_ns_dot = SX.sym('X_ns_dot')
     X_s_dot = SX.sym('X_s_dot')
     z_cumsum_dot = SX.sym('z_cumsum_dot')
     FW_plant_dot = SX.sym('FW_plant_dot')
     Tot_cost_dot = SX.sym('Tot_cost_dot')
-    DLI_upper_dot  = SX.sym('DLI_upper_dot')
+    DLI_start_of_day_dot  = SX.sym('DLI_start_of_day_dot')
     DLI_lower_dot = SX.sym('DLI_lower_dot')
-    xdot = vertcat(X_ns_dot, X_s_dot, FW_plant_dot, DLI_upper_dot, DLI_lower_dot, Tot_cost_dot, z_cumsum_dot)
+    xdot = vertcat(X_ns_dot, X_s_dot, FW_plant_dot, DLI_start_of_day_dot, DLI_lower_dot, Tot_cost_dot, z_cumsum_dot)
     # Define constants (as provided or calibrated)
     T_air = Env.T_air
     CO2_air = Env.CO2
@@ -73,25 +73,27 @@ def export_biomass_ode_model(Crop,Env, Ts, N_horizon, Days_horizon, photoperiod_
     f_expl = vertcat(dX_ns,                               # Non-structural dry weight per m^2
                      dX_s,                                # Structural dry weight per m^2
                      (dX_ns + dX_s) * dw_to_fw,           # Fresh weight of the shoot of one plant
-                     (photoperiod-1)*(-1)*PPFD/(Ts * photoperiod_length)-photoperiod*0.001*(DLI_upper),#PPFD/(Ts*N_horizon),                 # Average PPFD per day
-                     (end_of_day-1)*0.001*DLI_lower + end_of_day*(DLI_upper-min_DLI)/Ts,
+                     (photoperiod-1)*(-1)*PPFD/(Ts * photoperiod_length)-photoperiod*0.001*(DLI_start_of_day),#PPFD/(Ts*N_horizon),                 # Average PPFD per day
+                     0,#(end_of_day-1)*0.001*DLI_lower + end_of_day*(DLI_start_of_day-min_DLI)/Ts,
                      PPFD*energy_price/(N_horizon * Ts),  # Average hourly cost of energy for the prediction horizon
                      PPFD/(Ts*N_horizon)  # The average PPFD during light period
                     )
     f_impl = xdot - f_expl
 
     model = AcadosModel()
-    z_expr = vertcat(z_dp_constraint) - vertcat(PPFD*photoperiod)
+    z = vertcat(z_dp_constraint, z_DLI_end_of_day, z_min_DLI_constraint) 
+    z_constraints = vertcat(z_dp_constraint, z_DLI_end_of_day, z_min_DLI_constraint)
+    z_expr = z - vertcat(PPFD*photoperiod, (DLI_start_of_day + PPFD/(photoperiod_length))*(1-photoperiod), ((DLI_start_of_day + PPFD/(photoperiod_length)) - end_of_day * min_DLI)*(1-photoperiod))
     model.f_impl_expr = vertcat(f_impl, z_expr)
     model.f_expl_expr =f_expl
     model.x = x
     model.xdot = xdot
     model.u = u
     model.p = vertcat(energy_price, photoperiod, end_of_day)
-    model.z = z_dp_constraint# PPFD * photoperiod
-    model.con_h_expr = z_dp_constraint
+    model.z = z# PPFD * photoperiod
+    model.con_h_expr = z_constraints
     #model.con_h_expr_e = photoperiod*0
-    model.con_h_expr_0 = z_dp_constraint
+    model.con_h_expr_0 = z_constraints
     model.name = model_name
     # Return state derivatives
     return model

@@ -34,7 +34,7 @@ import pandas as pd
 from acados_template import latexify_plot
 
 
-def plot_crop(t, u_max, u_min, U, X_true, X_est=None, Y_measured=None, energy_price_array=None, photoperiod_array=None, eod_array=None, min_DLI=None, max_DLI=None, latexify=False, plt_show=True,
+def plot_crop(t, u_max, u_min, U, X_true, X_est=None, Y_measured=None, energy_price_array=None, photoperiod_array=None, Z_true = None, Z_labels = None, eod_array=None, min_DLI=None, max_DLI=None, latexify=False, plt_show=True,
                plot_all=False, states_labels=[], first_plot=[], X_true_label=None):
     if latexify:
         latexify_plot()
@@ -50,46 +50,64 @@ def plot_crop(t, u_max, u_min, U, X_true, X_est=None, Y_measured=None, energy_pr
         total_plots = first_plot
     subplot_rows = len(total_plots) + 2  # +2 for price and input plots
 
-    fig, axs = plt.subplots(subplot_rows, 1, figsize=(10, min(subplot_rows * 3, 9)))
+    # First figure setup
+    fig1, axs1 = plt.subplots(subplot_rows, 1, figsize=(10, min(subplot_rows * 3, 9)))
 
-    # Plotting the energy prices
-    axs[0].step(days, np.append([energy_price_array[0]], energy_price_array), where='post', label=X_true_label if X_true_label else 'Energy Price', color='r')
-    axs[0].set_ylabel('$price$')
-    axs[0].set_xlabel('$t$')
-    axs[0].grid()
+    # Second figure setup, check if Z_true is provided
+    if Z_labels is not None:
+        subplot_rows_z = len(Z_labels) + 2
+        fig2, axs2 = plt.subplots(subplot_rows_z, 1, figsize=(10, min(subplot_rows_z * 3, 9)))
 
-    # Plotting the input
-    axs[1].step(days[:-1], U, where='post', label=X_true_label if X_true_label else 'Input', color='r')
-    axs[1].hlines([u_max, u_min], days[0], days[-1], linestyles='dashed', colors=['g', 'b'], alpha=0.7)
-    axs[1].set_ylabel('$u$')
-    axs[1].set_xlabel('$t$')
-    axs[1].grid()
-    # Adding background color based on photoperiod
-
-    for i in range(len(days)-1):
-        if photoperiod_array[i] > 0:
-            color = 'red'
+    # Function to plot energy price and input
+    def plot_price_input(axs, days, energy_price_array, U, u_max, u_min, photoperiod_array, label_suffix=''):
+        axs[0].step(days, np.append([energy_price_array[0]], energy_price_array), where='post', label='Energy Price' + label_suffix, color='r')
+        axs[0].set_ylabel('$price$')
+        axs[0].set_xlabel('$t$')
+        axs[0].grid()
+        if U.shape[0] > 1:
+            axs[1].step(days[:-1], U, where='post', label='Input' + label_suffix, color='r')
         else:
-            color = 'green'
-        start = days[i]
-        
-        end = days[i + 1]
-        axs[1].fill_betweenx([0, u_max], start, end, color=color,step='pre', alpha=0.08)
-    #axs[1].fill_betweenx([0, u_max], end, end, color=color,step='pre', alpha=0.08)
+            axs[1].step(days, np.append(0, U), where='pre', label='Input' + label_suffix, color='r')
+        axs[1].hlines([u_max, u_min], days[0], days[-1], linestyles='dashed', colors=['g', 'b'], alpha=0.7)
+        axs[1].set_ylabel('$u$')
+        axs[1].set_xlabel('$t$')
+        axs[1].grid()
 
-    # Plotting states
+        for i in range(len(days)-1):
+            color = 'red' if photoperiod_array[i] > 0 else 'green'
+            start = days[i]
+            end = days[i + 1]
+            axs[1].fill_betweenx([0, u_max], start, end, color=color, step='pre', alpha=0.08)
+
+    # Plot energy price and input for both figures
+    plot_price_input(axs1, days, energy_price_array, U, u_max, u_min, photoperiod_array)
+    if Z_labels is not None:
+        plot_price_input(axs2, days, energy_price_array, U, u_max, u_min, photoperiod_array, ' with Z')
+
+    # Plot states for the first figure
     for j, label in enumerate(total_plots):
         idx = states_labels.index(label)
-        axs[j+2].plot(days, X_true[:, idx], label='True state')
+        axs1[j+2].plot(days, X_true[:, idx])
         if label == '$DLI_u$' and min_DLI is not None:
-            axs[j+2].hlines([min_DLI, max_DLI], days[0], days[-1], linestyles='dashed', colors=['orange', 'purple'], alpha=0.7)
+            axs1[j+2].hlines([min_DLI, max_DLI], days[0], days[-1], linestyles='dashed', colors=['orange', 'purple'], alpha=0.7)
         if WITH_ESTIMATION:
-            axs[j+2].plot(days_mhe, X_est[:, idx], '--', label='Estimated')
-            axs[j+2].plot(days, Y_measured[:, idx], 'x', label='Measured')
-        axs[j+2].set_ylabel(label)
-        axs[j+2].set_xlabel('$t$')
-        axs[j+2].legend(loc=1)
-        axs[j+2].grid()
+            axs1[j+2].plot(days_mhe, X_est[:, idx], '--', label='Estimated')
+            axs1[j+2].plot(days, Y_measured[:, idx], 'x', label='Measured')
+        axs1[j+2].set_ylabel(label)
+        axs1[j+2].set_xlabel('$t$')
+        axs1[j+2].grid()
+
+    # Plot Z states for the second figure if provided
+    if Z_labels is not None:
+        for j, label in enumerate(Z_labels):
+            if Z_true.shape[0] > 1:
+                axs2[j+2].plot(days[:-1], Z_true[:, j])
+            else:
+                axs2[j+2].plot(days, np.append(Z_true[:, j], Z_true[:, j]))
+
+            axs2[j+2].set_ylabel(label)
+            axs2[j+2].set_xlabel('$t$')
+            axs2[j+2].grid()
 
     plt.subplots_adjust(hspace=0.5)
     if plt_show:
@@ -171,20 +189,22 @@ def generate_end_of_day_array(photoperiod_length: int, darkperiod_length: int, N
     sequence = []
     if Nsim is None:
         while len(sequence) < N_horizon:
-            sequence += [0] * (photoperiod_length - 1)
+            sequence += [0] * (photoperiod_length-1)
             sequence += [1]
             if len(sequence) >= N_horizon:
                 break
-            sequence += [0] * darkperiod_length
+            
+            sequence += [0] * (darkperiod_length)
         sequence = sequence[:N_horizon]
 
         return np.array(sequence), None
     while len(sequence) < Nsim + N_horizon:
-        sequence += [0] * (photoperiod_length - 1)
+        sequence += [0] * (photoperiod_length-1)
         sequence += [1]
         if len(sequence) >= Nsim + N_horizon:
             break
-        sequence += [0] * darkperiod_length
+        
+        sequence += [0] * (darkperiod_length)
     sequence = sequence[:Nsim + N_horizon]
     return np.array(sequence[:N_horizon]), np.array(sequence)
 def print_ocp_setup_details(ocp):

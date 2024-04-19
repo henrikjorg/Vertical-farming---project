@@ -1,19 +1,23 @@
 {
     "Days": 10,
-    "N_horizon": 24,
-    "Fmax": 600,
+    "N_horizon": 12,
+    "Fmax": 400,
     "Fmin": 0,
-    "min_DLI": 300,
+    "min_DLI": 100,
     "max_DLI": 500,
-    "DaysSim": 1,
+    "DaysSim": 2,
     "Ts":   3600,
     "ocp_type": "lin_cost", 
-    "photoperiod_length": 18,
-    "darkperiod_length": 6,
+    "photoperiod_length": 1,
+    "darkperiod_length": 23,
     "closed_loop": 1,
+
+    "plot_every_stage": 1,
 
     "states_labels": ["$X_{ns}$", "$X_s$", "$FW shoot$", "$DLI_u$", "$DLI_l$", "$Cost$", "$Avg PPFD$"],
     "first_plot": ["$FW shoot$", "$DLI_u$"],
+    "Z_labels": ["$z_1$", "$z_2$", "$z_3$"],
+    "plot_Z": 0,
     "qp_solver": "PARTIAL_CONDENSING_HPIPM",
     "other_qp_solvers": ["PARTIAL_CONDENSING_HPIPM" , "FULL_CONDENSING_QPOASES", "PARTIAL_CONDENSING_HPIPM", "FULL_CONDENSING_QPOASES", "FULL_CONDENSING_HPIPM", "PARTIAL_CONDENSING_QPDUNES", "PARTIAL_CONDENSING_OSQP", "FULL_CONDENSING_DAQP"],
     "hessian_approx": "GAUSS_NEWTON",
@@ -29,7 +33,5 @@
     "Q_mat": [0,0,100,0,0,0],
     "q_arr": [0,0,-1,0,0,0],
     "R_mat": [0],
-    "r_arr": [0],
-
-    "plot_every_stage": 0
+    "r_arr": [0]
 }
