@@ -14,7 +14,7 @@ import casadi as ca
 from acados_template import AcadosOcp, AcadosOcpSolver
 from mpc_optimization.opt_crop_model import export_biomass_ode_model
 from mpc_optimization.opt_setup_solver import opt_setup
-from mpc_optimization.opt_utils import plot_crop, generate_energy_price, generate_photoperiod_values, print_ocp_setup_details, generate_end_of_day_array
+from mpc_optimization.opt_utils import plot_crop, generate_energy_price, generate_photoperiod_values, generate_start_of_night_array, print_ocp_setup_details, generate_end_of_day_array
 from data.utils import fetch_electricity_prices
 # import acados.interfaces.acados_template as at
 def load_config(file_path: str) -> dict:
@@ -63,26 +63,25 @@ def main():
         energy_prices, closed_loop_prices = fetch_electricity_prices('data/Spotprices_norway.csv', length=N_horizon, length_sim=Nsim)#generate_energy_price(N_horizon=N_horizon, Nsim=Nsim)
         photoperiod_values, closed_loop_pp_values = generate_photoperiod_values(photoperiod_length=photoperiod_length, darkperiod_length=darkperiod_length, N_horizon=N_horizon, Nsim=Nsim)
         end_of_day_values, closed_loop_eod_values = generate_end_of_day_array(photoperiod_length=photoperiod_length, darkperiod_length=darkperiod_length, N_horizon=N_horizon, Nsim=Nsim)
-        print(len(photoperiod_values))
-        print('-'*20)
-        print(len(closed_loop_prices))
+
         #raise ValueError
     else:
         Nsim = N_horizon
         energy_prices, _  = fetch_electricity_prices('data/Spotprices_norway.csv',length = N_horizon)#generate_energy_price(N_horizon=N_horizon)
         photoperiod_values, _ = generate_photoperiod_values(photoperiod_length=photoperiod_length, darkperiod_length=darkperiod_length, N_horizon=N_horizon)
         end_of_day_values, _ = generate_end_of_day_array(photoperiod_length=photoperiod_length, darkperiod_length=darkperiod_length, N_horizon=N_horizon)
+        start_of_night_values, _ = generate_start_of_night_array(photoperiod_length=photoperiod_length, darkperiod_length=darkperiod_length, N_horizon=N_horizon)
     Crop = CropModel(crop_config)
     Env = EnvironmentModel(env_config)
     use_RTI = False
-    x0 = np.array([Crop.X_ns, Crop.X_s, Crop.fresh_weight_shoot_per_plant, 0,0,0,0])
+    x0 = np.array([Crop.X_ns, Crop.X_s, Crop.fresh_weight_shoot_per_plant, 0,0,0,0, 0])
 
     ocp_solver, integrator, ocp = opt_setup(Crop=Crop, Env=Env, opt_config=opt_config, energy_prices=energy_prices, photoperiod_values=photoperiod_values, x0=x0
                                        , Fmax=Fmax, Fmin=Fmin, N_horizon=N_horizon, Ts=Ts, Tf=Tf, ocp_type=ocp_type,RTI=use_RTI)
     
     for i in range(N_horizon):
-        ocp_solver.set(i, 'p', np.array([energy_prices[i], photoperiod_values[i], end_of_day_values[i]]))
-    integrator.set('p', np.array([energy_prices[0], photoperiod_values[0], end_of_day_values[0]]))
+        ocp_solver.set(i, 'p', np.array([energy_prices[i], photoperiod_values[i], end_of_day_values[i], start_of_night_values[i]]))
+    integrator.set('p', np.array([energy_prices[0], photoperiod_values[0], end_of_day_values[0], start_of_night_values[0]]))
 
         #ocp_solver.set(N_horizon+i, 'p', photoperiod_values[i])
     # Printing the OCP constraints and cost function (if available)
@@ -101,7 +100,6 @@ def main():
 
         status = ocp_solver.solve()
         ocp_solver.print_statistics() # encapsulates: stat = ocp_solver.get_stats("statistics")
-
         if status != 0:
             raise Exception(f'acados returned status {status}.')
 
@@ -111,6 +109,12 @@ def main():
             simU[i,:] = ocp_solver.get(i, "u")
             simZ[i,:] = ocp_solver.get(i, "z")
         simX[Nsim,:] = ocp_solver.get(Nsim, "x")
+        print(simX)
+        print(simU)
+        print(simZ)
+        print(end_of_day_values)
+        print(photoperiod_values)
+        print(start_of_night_values)
         plot_crop(np.linspace(0, Tf, Nsim+1), Fmax, Fmin, simU, simX, energy_price_array=energy_prices, photoperiod_array=photoperiod_values, Z_true= simZ, Z_labels=Z_labels,
                    eod_array=end_of_day_values, min_DLI= min_DLI, max_DLI=max_DLI,plot_all=True,
                   states_labels=states_labels,first_plot=first_plot, latexify=False)

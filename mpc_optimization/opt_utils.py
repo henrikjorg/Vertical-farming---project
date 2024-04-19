@@ -207,6 +207,28 @@ def generate_end_of_day_array(photoperiod_length: int, darkperiod_length: int, N
         sequence += [0] * (darkperiod_length)
     sequence = sequence[:Nsim + N_horizon]
     return np.array(sequence[:N_horizon]), np.array(sequence)
+def generate_start_of_night_array(photoperiod_length: int, darkperiod_length: int, N_horizon: int, Nsim: int = None):
+    sequence = []
+    if Nsim is None:
+        while len(sequence) < N_horizon:
+            sequence += [0] * (photoperiod_length)
+            
+            if len(sequence) >= N_horizon:
+                break
+            sequence += [1]
+            sequence += [0] * (darkperiod_length-1)
+        sequence = sequence[:N_horizon]
+
+        return np.array(sequence), None
+    while len(sequence) < Nsim + N_horizon:
+        sequence += [0] * (photoperiod_length)
+        
+        if len(sequence) >= Nsim + N_horizon:
+            break
+        sequence += [1]
+        sequence += [0] * (darkperiod_length-1)
+    sequence = sequence[:Nsim + N_horizon]
+    return np.array(sequence[:N_horizon]), np.array(sequence)
 def print_ocp_setup_details(ocp):
     print("Optimal Control Problem Setup Details:")
 
@@ -238,6 +260,7 @@ def print_ocp_setup_details(ocp):
         print(f"Upper bound on states (ubx): {ocp.constraints.ubx}")
     if hasattr(ocp.constraints, 'lh'):
         print(f"Lower bound on algebraic variable (lh): {ocp.constraints.lh}")
+
     if hasattr(ocp.constraints, 'uh'):
         print(f"Upper bound on algebraic variable (uh): {ocp.constraints.uh}")
     
