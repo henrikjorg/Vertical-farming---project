@@ -60,22 +60,36 @@ def plot_crop(t, u_max, u_min, U, X_true, X_est=None, Y_measured=None, energy_pr
 
     # Function to plot energy price and input
     def plot_price_input(axs, days, energy_price_array, U, u_max, u_min, photoperiod_array, label_suffix=''):
-        axs[0].step(days, np.append([energy_price_array[0]], energy_price_array), where='post', label='Energy Price' + label_suffix, color='r')
+        if label_suffix == ' with Z':
+            axs[0].step(days[:-1], energy_price_array, where='post', label='Energy Price' + label_suffix, color='r')
+        else:
+            axs[0].step(days, np.append([energy_price_array[0]], energy_price_array), where='post', label='Energy Price' + label_suffix, color='r')
+
         axs[0].set_ylabel('$price$')
         axs[0].set_xlabel('$t$')
         axs[0].grid()
         if U.shape[0] > 1:
-            axs[1].step(days[:-1], U, where='post', label='Input' + label_suffix, color='r')
+            if label_suffix==' with Z':
+                axs[1].step(days[:-1], U, where='post', label='Input' + label_suffix, color='r')
+            else:
+                axs[1].step(days[:-1], U, where='post', label='Input' + label_suffix, color='r')
+                
         else:
+
             axs[1].step(days, np.append(0, U), where='pre', label='Input' + label_suffix, color='r')
-        axs[1].hlines([u_max, u_min], days[0], days[-1], linestyles='dashed', colors=['g', 'b'], alpha=0.7)
+               
+        axs[1].hlines([u_max, u_min], days[0], days[-2], linestyles='dashed', colors=['g', 'b'], alpha=0.7)
         axs[1].set_ylabel('$u$')
         axs[1].set_xlabel('$t$')
         axs[1].grid()
-
-        for i in range(len(days)-1):
+        if label_suffix == ' with Z':
+            r = len(days) -2
+        else:
+            r = len(days)-1
+        for i in range(r):
             color = 'red' if photoperiod_array[i] > 0 else 'green'
             start = days[i]
+            
             end = days[i + 1]
             axs[1].fill_betweenx([0, u_max], start, end, color=color, step='pre', alpha=0.08)
 

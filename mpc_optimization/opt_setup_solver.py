@@ -73,10 +73,10 @@ def opt_setup(Crop, Env, opt_config, energy_prices, photoperiod_values, x0, Fmax
         #ocp.constraints.idxbx = np.array([3,4])
 
         tol = 200
-        ocp.constraints.lh = np.array([0, 0, 0])
-        ocp.constraints.uh = np.array([0, max_DLI, max_DLI])
-        ocp.constraints.lh_0 = np.array([0, 0, 0])
-        ocp.constraints.uh_0 = np.array([0, max_DLI, max_DLI])
+        ocp.constraints.lh = np.array([-INF, -INF, -INF])
+        ocp.constraints.uh = np.array([INF, INF, INF])
+        ocp.constraints.lh_0 = np.array([-INF, -INF, -INF])
+        ocp.constraints.uh_0 = np.array([INF, INF, INF])
         #ocp.constraints.lh_e = np.array([0, -tol])
         #ocp.constraints.uh_e = np.array([max_DLI, 100000])
 
@@ -86,12 +86,12 @@ def opt_setup(Crop, Env, opt_config, energy_prices, photoperiod_values, x0, Fmax
     ocp.solver_options.hessian_approx = opt_config['hessian_approx']
     ocp.solver_options.integrator_type = opt_config['integrator_type']
     ocp.solver_options.print_level = opt_config['print_level']
-    #ocp.solver_options.nlp_solver_type = opt_config['nlp_solver_type']
+    ocp.solver_options.nlp_solver_type = opt_config['nlp_solver_type']
 
     #ocp.solver_options.nlp_solver_max_iter = opt_config['nlp_solver_max_iter']
 
     #ocp.solver_options.qp_solver_iter_max = opt_config["qp_solver_iter_max"]
-    #ocp.solver_options.nlp_solver_tol_stat = opt_config['nlp_solver_tol_stat']
+    ocp.solver_options.nlp_solver_tol_stat = opt_config['nlp_solver_tol_stat']
 
 
     # set prediction horizon

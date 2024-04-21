@@ -16,6 +16,7 @@ from mpc_optimization.opt_crop_model import export_biomass_ode_model
 from mpc_optimization.opt_setup_solver import opt_setup
 from mpc_optimization.opt_utils import plot_crop, generate_energy_price, generate_photoperiod_values, generate_start_of_night_array, print_ocp_setup_details, generate_end_of_day_array
 from data.utils import fetch_electricity_prices
+INF = 1e12
 # import acados.interfaces.acados_template as at
 def load_config(file_path: str) -> dict:
     """Load configuration from a JSON file."""
@@ -63,6 +64,7 @@ def main():
         energy_prices, closed_loop_prices = fetch_electricity_prices('data/Spotprices_norway.csv', length=N_horizon, length_sim=Nsim)#generate_energy_price(N_horizon=N_horizon, Nsim=Nsim)
         photoperiod_values, closed_loop_pp_values = generate_photoperiod_values(photoperiod_length=photoperiod_length, darkperiod_length=darkperiod_length, N_horizon=N_horizon, Nsim=Nsim)
         end_of_day_values, closed_loop_eod_values = generate_end_of_day_array(photoperiod_length=photoperiod_length, darkperiod_length=darkperiod_length, N_horizon=N_horizon, Nsim=Nsim)
+        start_of_night_values, closed_loop_son_values = generate_start_of_night_array(photoperiod_length=photoperiod_length, darkperiod_length=darkperiod_length, N_horizon=N_horizon, Nsim=Nsim)
 
         #raise ValueError
     else:
@@ -81,6 +83,12 @@ def main():
     
     for i in range(N_horizon):
         ocp_solver.set(i, 'p', np.array([energy_prices[i], photoperiod_values[i], end_of_day_values[i], start_of_night_values[i]]))
+        if end_of_day_values[i]:
+                ocp_solver.constraints_set(i, "lh", np.array([-INF,-INF,0]))
+                ocp_solver.constraints_set(i, "uh", np.array([INF, max_DLI, INF]))
+        elif photoperiod_values[i]:
+                ocp_solver.constraints_set(i, "lh", np.array([0,-INF,-INF]))
+                ocp_solver.constraints_set(i, "uh", np.array([0, INF, INF]))
     integrator.set('p', np.array([energy_prices[0], photoperiod_values[0], end_of_day_values[0], start_of_night_values[0]]))
 
         #ocp_solver.set(N_horizon+i, 'p', photoperiod_values[i])
@@ -109,12 +117,12 @@ def main():
             simU[i,:] = ocp_solver.get(i, "u")
             simZ[i,:] = ocp_solver.get(i, "z")
         simX[Nsim,:] = ocp_solver.get(Nsim, "x")
-        print(simX)
+        print(simX[:,2])
         print(simU)
         print(simZ)
-        print(end_of_day_values)
-        print(photoperiod_values)
-        print(start_of_night_values)
+
+        print(ocp_solver.get_cost())
+
         plot_crop(np.linspace(0, Tf, Nsim+1), Fmax, Fmin, simU, simX, energy_price_array=energy_prices, photoperiod_array=photoperiod_values, Z_true= simZ, Z_labels=Z_labels,
                    eod_array=end_of_day_values, min_DLI= min_DLI, max_DLI=max_DLI,plot_all=True,
                   states_labels=states_labels,first_plot=first_plot, latexify=False)
@@ -133,10 +141,17 @@ def main():
         energy_prices = closed_loop_prices[:N_horizon]
         photoperiod_values = closed_loop_pp_values[:N_horizon]
         end_of_day_values = closed_loop_eod_values[:N_horizon]
+        start_of_night_values = closed_loop_son_values[:N_horizon]
     
         for j in range(N_horizon):
-            ocp_solver.set(j, 'p', np.array([energy_prices[j], photoperiod_values[j], end_of_day_values[j]]))
-        integrator.set('p', np.array([energy_prices[0], photoperiod_values[0], end_of_day_values[0]]))
+            ocp_solver.set(j, 'p', np.array([energy_prices[j], photoperiod_values[j], end_of_day_values[j], start_of_night_values[j]]))
+            if end_of_day_values[j]:
+                ocp_solver.constraints_set(j, "lh", np.array([-INF,-INF,0]))
+                ocp_solver.constraints_set(j, "uh", np.array([INF, max_DLI, INF]))
+            elif photoperiod_values[j]:
+                ocp_solver.constraints_set(j, "lh", np.array([0,-INF,-INF]))
+                ocp_solver.constraints_set(j, "uh", np.array([0, INF, INF]))
+        integrator.set('p', np.array([energy_prices[0], photoperiod_values[0], end_of_day_values[0], start_of_night_values[0]]))
 
         if use_RTI:
             t_preparation = np.zeros((Nsim))
@@ -166,9 +181,16 @@ def main():
                 energy_prices = closed_loop_prices[i:i + N_shrinking]
                 photoperiod_values = closed_loop_pp_values[i:i + N_shrinking]
                 end_of_day_values = closed_loop_eod_values[i:i + N_shrinking]
+                start_of_night_values = closed_loop_son_values[i:i +N_shrinking]
                 for j in range(N_shrinking):
-                    ocp_solver.set(j, 'p', np.array([energy_prices[j], photoperiod_values[j], end_of_day_values[j]]))
-                integrator.set('p', np.array([energy_prices[0], photoperiod_values[0], end_of_day_values[0]]))
+                    ocp_solver.set(j, 'p', np.array([energy_prices[j], photoperiod_values[j], end_of_day_values[j], start_of_night_values[j]]))
+                    if end_of_day_values[j]:
+                        ocp_solver.constraints_set(j, "lh", np.array([-INF,-INF,0]))
+                        ocp_solver.constraints_set(j, "uh", np.array([INF, max_DLI, INF]))
+                    elif photoperiod_values[j]:
+                        ocp_solver.constraints_set(j, "lh", np.array([0,-INF,-INF]))
+                        ocp_solver.constraints_set(j, "uh", np.array([0, INF, INF]))
+                integrator.set('p', np.array([energy_prices[0], photoperiod_values[0], end_of_day_values[0], start_of_night_values[0]]))
             simX_temp[0,:] = simX[i,:]
             if use_RTI:
                 # preparation phase
@@ -203,6 +225,9 @@ def main():
                     simU_temp[j,:] = ocp_solver.get(j, "u")
                     simZ_temp[j,:] = ocp_solver.get(j, "z")
                 simX_temp[N_shrinking,:] = ocp_solver.get(N_shrinking, "x")
+                print(ocp_solver.get_cost())
+                print(simX_temp[:,2])
+                print(simU_temp)
                 plot_crop(np.linspace(0, N_shrinking*Ts, N_shrinking+1), Fmax, Fmin, simU_temp, simX_temp, energy_price_array=energy_prices, photoperiod_array=photoperiod_values, eod_array=end_of_day_values,
                         Z_labels=Z_labels,Z_true=simZ_temp,min_DLI= min_DLI, max_DLI=max_DLI,plot_all=True,
                         states_labels=states_labels,first_plot=first_plot, latexify=False)
