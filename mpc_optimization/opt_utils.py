@@ -34,7 +34,7 @@ import pandas as pd
 from acados_template import latexify_plot
 
 
-def plot_crop(t, u_max, u_min, U, X_true, X_est=None, Y_measured=None, energy_price_array=None, photoperiod_array=None, Z_true = None, Z_labels = None, eod_array=None, min_DLI=None, max_DLI=None, latexify=False, plt_show=True,
+def plot_crop(t, u_max, u_min, U, X_true, X_est=None, Y_measured=None, energy_price_array=None, photoperiod_array=None, Z_true = None, Z_labels = None, min_DLI=None, max_DLI=None, latexify=False, plt_show=True,
                plot_all=False, states_labels=[], first_plot=[], X_true_label=None):
     if latexify:
         latexify_plot()
@@ -145,7 +145,7 @@ def generate_energy_price(N_horizon, Nsim = None):
         closed_loop_energy_price_array[i] = f(i)
     return energy_price_array, closed_loop_energy_price_array
 
-def generate_photoperiod_values(photoperiod_length: int, darkperiod_length: int, N_horizon: int, Nsim: int = None):
+def generate_photoperiod_values(photoperiod_length: int, darkperiod_length: int, Nsim: int = None):
     """
     Generates an array representing a sequence of light and dark periods over a specified horizon.
     
@@ -163,86 +163,46 @@ def generate_photoperiod_values(photoperiod_length: int, darkperiod_length: int,
     """
     # Initialize an empty list to hold the sequence of light and dark period values
     sequence = []
-    if Nsim is None:
-        
-        
-        # Continue appending values to the sequence until its length reaches N_horizon
-        while len(sequence) < N_horizon:
-            # Append 1s for the photoperiod
-            sequence += [0] * photoperiod_length
-            # Ensure the sequence does not exceed N_horizon
-            if len(sequence) >= N_horizon:
-                break
-            # Append 0s for the darkperiod
-            sequence += [1] * darkperiod_length
-        
-        # Trim the sequence if it exceeds N_horizon
-        sequence = sequence[:N_horizon]
     
-    
-        # Convert the sequence to a NumPy array and return it
-        return np.array(sequence), None
-
-    while len(sequence) < Nsim + N_horizon:
+    while len(sequence) < Nsim :
         # Append 1s for the photoperiod
         sequence += [0] * photoperiod_length
         # Ensure the sequence does not exceed N_horizon
-        if len(sequence) >= Nsim + N_horizon:
+        if len(sequence) >= Nsim:
             break
         # Append 0s for the darkperiod
         sequence += [1] * darkperiod_length
     
     # Trim the sequence if it exceeds N_horizon
-    sequence = sequence[:Nsim + N_horizon]
+    sequence = sequence[:Nsim ]
 
 
     # Convert the sequence to a NumPy array and return it
-    return np.array(sequence[:N_horizon]), np.array(sequence)
+    return np.array(sequence)
     
-def generate_end_of_day_array(photoperiod_length: int, darkperiod_length: int, N_horizon: int, Nsim: int = None):
+def generate_end_of_day_array(photoperiod_length: int, darkperiod_length: int, Nsim: int = None):
     sequence = []
-    if Nsim is None:
-        while len(sequence) < N_horizon:
-            sequence += [0] * (photoperiod_length-1)
-            sequence += [1]
-            if len(sequence) >= N_horizon:
-                break
-            
-            sequence += [0] * (darkperiod_length)
-        sequence = sequence[:N_horizon]
-
-        return np.array(sequence), None
-    while len(sequence) < Nsim + N_horizon:
+    while len(sequence) < Nsim:
         sequence += [0] * (photoperiod_length-1)
         sequence += [1]
-        if len(sequence) >= Nsim + N_horizon:
+        if len(sequence) >= Nsim:
             break
         
         sequence += [0] * (darkperiod_length)
-    sequence = sequence[:Nsim + N_horizon]
-    return np.array(sequence[:N_horizon]), np.array(sequence)
-def generate_start_of_night_array(photoperiod_length: int, darkperiod_length: int, N_horizon: int, Nsim: int = None):
+    sequence = sequence[:Nsim]
+    return np.array(sequence)
+def generate_start_of_night_array(photoperiod_length: int, darkperiod_length: int, Nsim: int = None):
     sequence = []
-    if Nsim is None:
-        while len(sequence) < N_horizon:
-            sequence += [0] * (photoperiod_length)
-            
-            if len(sequence) >= N_horizon:
-                break
-            sequence += [1]
-            sequence += [0] * (darkperiod_length-1)
-        sequence = sequence[:N_horizon]
-
-        return np.array(sequence), None
-    while len(sequence) < Nsim + N_horizon:
+    
+    while len(sequence) < Nsim :
         sequence += [0] * (photoperiod_length)
         
-        if len(sequence) >= Nsim + N_horizon:
+        if len(sequence) >= Nsim :
             break
         sequence += [1]
         sequence += [0] * (darkperiod_length-1)
-    sequence = sequence[:Nsim + N_horizon]
-    return np.array(sequence[:N_horizon]), np.array(sequence)
+    sequence = sequence[:Nsim]
+    return np.array(sequence)
 def print_ocp_setup_details(ocp):
     print("Optimal Control Problem Setup Details:")
 

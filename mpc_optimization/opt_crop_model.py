@@ -37,7 +37,6 @@ def export_biomass_ode_model(Crop,Env, Ts, N_horizon, photoperiod_length, darkpe
     z_dp_constraint =SX.sym('z_dp_constraint') # Ensuring no light during dark period
     z_min_DLI_constraint = SX.sym('z_min_DLI_constraint')
     z_DLI_end_of_day = SX.sym('z_DLI_end_of_day')
-    z_UL = SX.sym('z_UL')
     u_last_dot = SX.sym('u_last_dot')             # Ensuring minimum DLI
 
     X_ns_dot = SX.sym('X_ns_dot')
@@ -52,7 +51,12 @@ def export_biomass_ode_model(Crop,Env, Ts, N_horizon, photoperiod_length, darkpe
     # Define constants (as provided or calibrated)
     T_air = Env.T_air
     CO2_air = Env.CO2
-    PAR_flux = PPFD * 0.217
+    delay = 0
+    if delay:
+      PAR_flux = z_cumsum * 0.217
+    else:
+      PAR_flux = PPFD * 0.217
+    
     # Calculate stomatal and aerodynamic conductances (reciprocals of resistances)
     LAI = SLA_to_LAI(SLA=Crop.SLA, c_tau=Crop.c_tau, leaf_to_shoot_ratio=Crop.leaf_to_shoot_ratio, X_s=X_s, X_ns=X_ns)
     g_stm = 1 / stomatal_resistance_eq(PPFD)
@@ -80,8 +84,8 @@ def export_biomass_ode_model(Crop,Env, Ts, N_horizon, photoperiod_length, darkpe
                      (photoperiod-1)*(-1)*PPFD/(Ts * photoperiod_length)-photoperiod*0.001*(DLI_start_of_day),#PPFD/(Ts*N_horizon),                 # Average PPFD per day
                      (end_of_day-1)*0.001*DLI_lower + end_of_day*(DLI_start_of_day-min_DLI)/Ts,
                      PPFD*energy_price/(N_horizon * Ts),  # Average hourly cost of energy for the prediction horizon
-                     PPFD/(Ts*N_horizon),  # The average PPFD during light period
-                     0)#(PPFD - u_last)*0.0005 # u_last_dot    
+                     (PPFD-z_cumsum)*0.001,  # The average PPFD during light period
+                     0)#(PPFD-u_last)*0.001)#(1-u_last)*0.001) # u_last_dot    
                      #)
     f_impl = xdot - f_expl
 
@@ -91,7 +95,7 @@ def export_biomass_ode_model(Crop,Env, Ts, N_horizon, photoperiod_length, darkpe
                           (DLI_start_of_day + PPFD/(photoperiod_length)),
                             ((DLI_start_of_day + PPFD/(photoperiod_length)) - min_DLI))
     h_end = vertcat(DLI_start_of_day,
-                    (DLI_start_of_day-start_of_night*min_DLI))
+                    (DLI_start_of_day-min_DLI))
     #z_expr = z - vertcat(PPFD*photoperiod,
     #                      (DLI_start_of_day + PPFD/(photoperiod_length))*(1-photoperiod),
     #                        ((DLI_start_of_day + PPFD/(photoperiod_length)) - end_of_day * min_DLI)*(1-photoperiod))#((DLI_start_of_day + PPFD/(photoperiod_length)) - end_of_day * min_DLI)*(1-photoperiod)) # The last "4" is recently added
@@ -107,7 +111,7 @@ def export_biomass_ode_model(Crop,Env, Ts, N_horizon, photoperiod_length, darkpe
     model.p = vertcat(energy_price, photoperiod, end_of_day, start_of_night)
     model.z = z
     model.con_h_expr = z
-    #model.con_h_expr_e = h_end
+    model.con_h_expr_e = h_end
     model.con_h_expr_0 = z
     model.name = model_name
     # Return state derivatives

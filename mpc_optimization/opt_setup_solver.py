@@ -9,7 +9,7 @@ import casadi as ca
 from acados_template import AcadosOcp, AcadosOcpSolver, AcadosSimSolver
 from mpc_optimization.opt_crop_model import export_biomass_ode_model
 INF = 1e12
-def opt_setup(Crop, Env, opt_config, energy_prices, photoperiod_values, x0, Fmax, Fmin, N_horizon, Ts,Tf, ocp_type="minimize_cost", RTI=False):
+def opt_setup(Crop, Env, opt_config, x0, Fmax, Fmin, N_horizon, Ts,Tf, ocp_type="minimize_cost", RTI=False):
 
 
     # Create the ocp object
@@ -44,10 +44,10 @@ def opt_setup(Crop, Env, opt_config, energy_prices, photoperiod_values, x0, Fmax
     #x_ref = np.array(opt_config['x_ref'])
     Q_mat = np.diag([0, # NS mass                   0
                      0, # S mass                    1
-                     1, # Fresh mass one shoot      2
+                     0, # Fresh mass one shoot      2
                      0, # DLI uppert (one pp per day!)     3
                      0, # DLI lower bound           4
-                     0, # Average hourly cost       5
+                     1000, # Average hourly cost       5
                      0, # Avg PPFD during photoperiod  6
                      0
                      ])
@@ -62,6 +62,15 @@ def opt_setup(Crop, Env, opt_config, energy_prices, photoperiod_values, x0, Fmax
         ocp.constraints.ubu = np.array([Fmax])
         ocp.constraints.idxbu = np.array([0])
         ocp.constraints.x0 = x0
+        #x0l = x0
+        #x0l[7] = 0
+        #x0u = x0
+        #x0u[7] = 0
+        #ocp.constraints.lbx_0 = x0l
+        #ocp.constraints.ubx_0 = x0u
+        #ocp.constraints.idxbxe_0 = np.array([0,1,2,3,4,5,6,7])
+        #ocp.constraints.idxbx_0 = np.array([0,1,2,3,4,5,6, 7])
+
         # Constraints on the intermediate stages
         #       DLI constraint: -100, 
         #ocp.constraints.lbx = np.array([-1, -1])
@@ -77,8 +86,8 @@ def opt_setup(Crop, Env, opt_config, energy_prices, photoperiod_values, x0, Fmax
         ocp.constraints.uh = np.array([INF, INF, INF])
         ocp.constraints.lh_0 = np.array([-INF, -INF, -INF])
         ocp.constraints.uh_0 = np.array([INF, INF, INF])
-        #ocp.constraints.lh_e = np.array([0, -tol])
-        #ocp.constraints.uh_e = np.array([max_DLI, 100000])
+        ocp.constraints.lh_e = np.array([-INF, -INF])
+        ocp.constraints.uh_e = np.array([INF, INF])
 
     
 
@@ -87,19 +96,25 @@ def opt_setup(Crop, Env, opt_config, energy_prices, photoperiod_values, x0, Fmax
     ocp.solver_options.integrator_type = opt_config['integrator_type']
     ocp.solver_options.print_level = opt_config['print_level']
     ocp.solver_options.nlp_solver_type = opt_config['nlp_solver_type']
+    #ocp.solver_options.sim_method_newton_iter = opt_config['sim_method_newton_iter']
+    #ocp.solver_options.sim_method_num_stages = opt_config['sim_method_num_stages']
+    #ocp.solver_options.sim_method_num_steps = opt_config['sim_method_num_steps']
+    #ocp.solver_options.sim_method_newton_tol = opt_config['sim_method_newton_tol']
 
+    
     #ocp.solver_options.nlp_solver_max_iter = opt_config['nlp_solver_max_iter']
 
     #ocp.solver_options.qp_solver_iter_max = opt_config["qp_solver_iter_max"]
-    ocp.solver_options.nlp_solver_tol_stat = opt_config['nlp_solver_tol_stat']
+    #ocp.solver_options.nlp_solver_tol_stat = opt_config['nlp_solver_tol_stat']
 
 
     # set prediction horizon
     ocp.solver_options.tf = Tf
-
-    acados_ocp_solver = AcadosOcpSolver(ocp, json_file = 'mpc_optimization/acados_ocp.json')
+    json_file = 'mpc_optimization/acados_ocp.json'
+    acados_ocp_solver = AcadosOcpSolver(ocp, json_file = json_file)
 
     # create an integrator with the same settings as used in the OCP solver.
-    acados_integrator = AcadosSimSolver(ocp, json_file = 'mpc_optimization/acados_integrator.json')
+    #json_file = 'mpc_optimization/acados_sim.json'
+    acados_integrator = AcadosSimSolver(ocp, json_file = json_file)
 
     return acados_ocp_solver, acados_integrator, ocp

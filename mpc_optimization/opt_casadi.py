@@ -26,7 +26,7 @@ def load_config(file_path: str) -> dict:
     else:
         with open(file_path, 'r') as file:
             return json.load(file)
-def set_new_solver_parameters(solver, new_horizon):
+def solver_set_new_horizon(solver, new_horizon):
     solver.solver_options["sim_method_num_stages"] = solver.solver_options["sim_method_num_stages"][:new_horizon]
     solver.solver_options["sim_method_jac_reuse"] = solver.solver_options["sim_method_jac_reuse"][:new_horizon]
     solver.solver_options["shooting_nodes"] = solver.solver_options["shooting_nodes"][:new_horizon]
@@ -34,6 +34,36 @@ def set_new_solver_parameters(solver, new_horizon):
     solver.solver_options["time_steps"] = solver.solver_options["time_steps"][:new_horizon]
     solver.solver_options["sim_method_num_steps"] = solver.solver_options["sim_method_num_steps"][:new_horizon]
     solver.N = new_horizon
+def update_parameters_and_constraints(N_horizon, data_dict, solver, integrator, max_DLI, sim_iter):
+    for j in range(N_horizon):
+        solver.set(j, 'p', np.array([data_dict['energy'][sim_iter + j], data_dict['photoperiod'][sim_iter + j], data_dict['eod'][sim_iter + j], data_dict['son'][sim_iter +j]]))
+        if data_dict['eod'][sim_iter + j]:
+                solver.constraints_set(j, "lh", np.array([-INF,-INF,0]))
+                solver.constraints_set(j, "uh", np.array([INF, max_DLI, INF]))
+        elif data_dict['photoperiod'][sim_iter + j]:
+                solver.constraints_set(j, "lh", np.array([-1e-4,-INF,-INF]))
+                solver.constraints_set(j, "uh", np.array([1e-4, INF, INF]))
+    if data_dict['son'][sim_iter + N_horizon]:
+        solver.constraints_set(N_horizon, "lh", np.array([-INF, -INF]))
+        solver.constraints_set(N_horizon, "uh", np.array([max_DLI, INF]))
+
+    integrator.set('p', np.array([data_dict['energy'][sim_iter], data_dict['photoperiod'][sim_iter], data_dict['eod'][sim_iter], data_dict['son'][sim_iter]]))
+
+def generate_data_dict(photoperiod_length=None, darkperiod_length=None, Nsim=None, shrink=False, N_horizon = None):
+    # N_horizon only used if shrink = False
+    data_dict = {}
+    if shrink:
+        data_dict['energy'] = fetch_electricity_prices('data/Spotprices_norway.csv', length=Nsim)
+        data_dict['photoperiod'] = generate_photoperiod_values(photoperiod_length=photoperiod_length, darkperiod_length=darkperiod_length, Nsim=Nsim)
+        data_dict['eod'] = generate_end_of_day_array(photoperiod_length=photoperiod_length, darkperiod_length=darkperiod_length, Nsim=Nsim)
+        data_dict['son'] = generate_start_of_night_array(photoperiod_length=photoperiod_length, darkperiod_length=darkperiod_length, Nsim=Nsim)
+    else:
+        data_dict['energy'] = fetch_electricity_prices('data/Spotprices_norway.csv', length=Nsim+N_horizon)
+        data_dict['photoperiod'] = generate_photoperiod_values(photoperiod_length=photoperiod_length, darkperiod_length=darkperiod_length, Nsim=Nsim+N_horizon)
+        data_dict['eod'] = generate_end_of_day_array(photoperiod_length=photoperiod_length, darkperiod_length=darkperiod_length, Nsim=Nsim+N_horizon)
+        data_dict['son'] = generate_start_of_night_array(photoperiod_length=photoperiod_length, darkperiod_length=darkperiod_length, Nsim=Nsim+N_horizon)
+    return data_dict
+
 def main():
     crop_config = load_config('crop_model_config.json')
     env_config = load_config('env_model_config.json')
@@ -49,6 +79,7 @@ def main():
     if not plot_Z:
         Z_labels = None
     plot_every_stage = opt_config['plot_every_stage']
+    shrink = opt_config['shrink_horizon']
     Fmax = opt_config['Fmax']   # Fmax: The maximum allowed input
     Fmin = opt_config['Fmin']   # Fmin: The minimum allowed input
     min_DLI = opt_config['min_DLI']
@@ -57,54 +88,39 @@ def main():
     Tsim = DaysSim * 24 * 3600   # Tsim: The total time of the whole simulation (closed loop)
     Ts = opt_config['Ts']       # Ts: the sampling time of one step
     N_horizon = opt_config['N_horizon'] # N_horizon: The number of steps within the horizon
-    Days_horizon = N_horizon / 24
+
     Tf = N_horizon * Ts         # Tf: The total time of the horizon
     if closed_loop:
         Nsim = int(np.floor(Tsim/Ts))
-        energy_prices, closed_loop_prices = fetch_electricity_prices('data/Spotprices_norway.csv', length=N_horizon, length_sim=Nsim)#generate_energy_price(N_horizon=N_horizon, Nsim=Nsim)
-        photoperiod_values, closed_loop_pp_values = generate_photoperiod_values(photoperiod_length=photoperiod_length, darkperiod_length=darkperiod_length, N_horizon=N_horizon, Nsim=Nsim)
-        end_of_day_values, closed_loop_eod_values = generate_end_of_day_array(photoperiod_length=photoperiod_length, darkperiod_length=darkperiod_length, N_horizon=N_horizon, Nsim=Nsim)
-        start_of_night_values, closed_loop_son_values = generate_start_of_night_array(photoperiod_length=photoperiod_length, darkperiod_length=darkperiod_length, N_horizon=N_horizon, Nsim=Nsim)
-
-        #raise ValueError
     else:
         Nsim = N_horizon
-        energy_prices, _  = fetch_electricity_prices('data/Spotprices_norway.csv',length = N_horizon)#generate_energy_price(N_horizon=N_horizon)
-        photoperiod_values, _ = generate_photoperiod_values(photoperiod_length=photoperiod_length, darkperiod_length=darkperiod_length, N_horizon=N_horizon)
-        end_of_day_values, _ = generate_end_of_day_array(photoperiod_length=photoperiod_length, darkperiod_length=darkperiod_length, N_horizon=N_horizon)
-        start_of_night_values, _ = generate_start_of_night_array(photoperiod_length=photoperiod_length, darkperiod_length=darkperiod_length, N_horizon=N_horizon)
+    data_dict = generate_data_dict(photoperiod_length=photoperiod_length, darkperiod_length=darkperiod_length, Nsim=Nsim, shrink=shrink, N_horizon=N_horizon)
     Crop = CropModel(crop_config)
     Env = EnvironmentModel(env_config)
     use_RTI = False
     x0 = np.array([Crop.X_ns, Crop.X_s, Crop.fresh_weight_shoot_per_plant, 0,0,0,0, 0])
 
-    ocp_solver, integrator, ocp = opt_setup(Crop=Crop, Env=Env, opt_config=opt_config, energy_prices=energy_prices, photoperiod_values=photoperiod_values, x0=x0
+    ocp_solver, integrator, ocp = opt_setup(Crop=Crop, Env=Env, opt_config=opt_config, x0=x0
                                        , Fmax=Fmax, Fmin=Fmin, N_horizon=N_horizon, Ts=Ts, Tf=Tf, ocp_type=ocp_type,RTI=use_RTI)
-    
-    for i in range(N_horizon):
-        ocp_solver.set(i, 'p', np.array([energy_prices[i], photoperiod_values[i], end_of_day_values[i], start_of_night_values[i]]))
-        if end_of_day_values[i]:
-                ocp_solver.constraints_set(i, "lh", np.array([-INF,-INF,0]))
-                ocp_solver.constraints_set(i, "uh", np.array([INF, max_DLI, INF]))
-        elif photoperiod_values[i]:
-                ocp_solver.constraints_set(i, "lh", np.array([0,-INF,-INF]))
-                ocp_solver.constraints_set(i, "uh", np.array([0, INF, INF]))
-    integrator.set('p', np.array([energy_prices[0], photoperiod_values[0], end_of_day_values[0], start_of_night_values[0]]))
 
-        #ocp_solver.set(N_horizon+i, 'p', photoperiod_values[i])
+    update_parameters_and_constraints(N_horizon=N_horizon, data_dict=data_dict, solver=ocp_solver, integrator=integrator, max_DLI=max_DLI, sim_iter=0)
+    
     # Printing the OCP constraints and cost function (if available)
 
     print_ocp_setup_details(ocp)
+    
     nx = ocp_solver.acados_ocp.dims.nx
     nu = ocp_solver.acados_ocp.dims.nu
     nz = ocp_solver.acados_ocp.dims.nz
+    simX = np.zeros((Nsim+1, nx))
+    simU = np.zeros((Nsim, nu))
+    simZ = np.zeros((Nsim, nz))
+    simX[0,:] = x0
+    # do some initial iterations to start with a good initial guess
+    num_iter_initial =5
+    for _ in range(num_iter_initial):
+        ocp_solver.solve_for_x0(x0_bar = x0)
     if not closed_loop: # Open loop
-        
-
-        simX = np.zeros((Nsim+1, nx))
-        simU = np.zeros((Nsim, nu))
-        simZ = np.zeros((Nsim, nz))
-        simX[0,:] = x0
 
         status = ocp_solver.solve()
         ocp_solver.print_statistics() # encapsulates: stat = ocp_solver.get_stats("statistics")
@@ -117,81 +133,50 @@ def main():
             simU[i,:] = ocp_solver.get(i, "u")
             simZ[i,:] = ocp_solver.get(i, "z")
         simX[Nsim,:] = ocp_solver.get(Nsim, "x")
-        print(simX[:,2])
-        print(simU)
-        print(simZ)
 
         print(ocp_solver.get_cost())
 
-        plot_crop(np.linspace(0, Tf, Nsim+1), Fmax, Fmin, simU, simX, energy_price_array=energy_prices, photoperiod_array=photoperiod_values, Z_true= simZ, Z_labels=Z_labels,
-                   eod_array=end_of_day_values, min_DLI= min_DLI, max_DLI=max_DLI,plot_all=True,
+        plot_crop(np.linspace(0, Tf, Nsim+1), Fmax, Fmin, simU, simX, energy_price_array=data_dict['energy'][:Nsim], photoperiod_array=data_dict['photoperiod'][:Nsim+1], Z_true= simZ, Z_labels=Z_labels,
+                min_DLI= min_DLI, max_DLI=max_DLI,plot_all=True,
                   states_labels=states_labels,first_plot=first_plot, latexify=False)
     else: # Closed loop
-
-        Nsim = int(np.floor(Tsim/Ts))
         if Nsim < N_horizon:
             raise ValueError('The simulation length is initially set to be shorter than the horizon')
-        simX = np.zeros((Nsim+1, nx))
-        simZ = np.zeros((Nsim, nz))
-        simU = np.zeros((Nsim, nu))
         
-        simX[0,:] = x0
-        
-
-        energy_prices = closed_loop_prices[:N_horizon]
-        photoperiod_values = closed_loop_pp_values[:N_horizon]
-        end_of_day_values = closed_loop_eod_values[:N_horizon]
-        start_of_night_values = closed_loop_son_values[:N_horizon]
-    
-        for j in range(N_horizon):
-            ocp_solver.set(j, 'p', np.array([energy_prices[j], photoperiod_values[j], end_of_day_values[j], start_of_night_values[j]]))
-            if end_of_day_values[j]:
-                ocp_solver.constraints_set(j, "lh", np.array([-INF,-INF,0]))
-                ocp_solver.constraints_set(j, "uh", np.array([INF, max_DLI, INF]))
-            elif photoperiod_values[j]:
-                ocp_solver.constraints_set(j, "lh", np.array([0,-INF,-INF]))
-                ocp_solver.constraints_set(j, "uh", np.array([0, INF, INF]))
-        integrator.set('p', np.array([energy_prices[0], photoperiod_values[0], end_of_day_values[0], start_of_night_values[0]]))
-
         if use_RTI:
             t_preparation = np.zeros((Nsim))
             t_feedback = np.zeros((Nsim))
-
         else:
             t = np.zeros((Nsim))
 
-        # do some initial iterations to start with a good initial guess
-        num_iter_initial = 5
-        for _ in range(num_iter_initial):
-            ocp_solver.solve_for_x0(x0_bar = x0)
+        
         
         # closed loop
         for i in range(Nsim):
-            if N_horizon <= Nsim-i :
+            print('------')
+            print('iter: ', i)
+            
+            if N_horizon <= Nsim-i or not shrink:
                 N_shrinking = N_horizon
             else:
                 N_shrinking = Nsim - i
-                set_new_solver_parameters(ocp_solver, N_shrinking)
-                #for _ in range(num_iter_initial):
-                #    ocp_solver.solve_for_x0(x0_bar = simX[i,:])
+                print('Horizon shrinked to: ', N_shrinking)
+                solver_set_new_horizon(ocp_solver, N_shrinking)
+                
+            print('-------')
+            # Only for testing purposes
             simX_temp = np.zeros((N_shrinking+1, nx))
+            simX_temp2 = np.zeros((N_shrinking+1, nx))
             simZ_temp = np.zeros((N_shrinking, nz))
             simU_temp = np.zeros((N_shrinking, nu))
             if i > 0:
-                energy_prices = closed_loop_prices[i:i + N_shrinking]
-                photoperiod_values = closed_loop_pp_values[i:i + N_shrinking]
-                end_of_day_values = closed_loop_eod_values[i:i + N_shrinking]
-                start_of_night_values = closed_loop_son_values[i:i +N_shrinking]
-                for j in range(N_shrinking):
-                    ocp_solver.set(j, 'p', np.array([energy_prices[j], photoperiod_values[j], end_of_day_values[j], start_of_night_values[j]]))
-                    if end_of_day_values[j]:
-                        ocp_solver.constraints_set(j, "lh", np.array([-INF,-INF,0]))
-                        ocp_solver.constraints_set(j, "uh", np.array([INF, max_DLI, INF]))
-                    elif photoperiod_values[j]:
-                        ocp_solver.constraints_set(j, "lh", np.array([0,-INF,-INF]))
-                        ocp_solver.constraints_set(j, "uh", np.array([0, INF, INF]))
-                integrator.set('p', np.array([energy_prices[0], photoperiod_values[0], end_of_day_values[0], start_of_night_values[0]]))
+                update_parameters_and_constraints(N_horizon=N_shrinking, data_dict=data_dict, solver=ocp_solver, integrator=integrator, max_DLI=max_DLI, sim_iter=i)
+                for _ in range(num_iter_initial):
+                    ocp_solver.solve_for_x0(x0_bar = simX[i,:])
+            # Testing stuff
             simX_temp[0,:] = simX[i,:]
+            simX_temp2[0,:] = simX[i,:]
+
             if use_RTI:
                 # preparation phase
                 ocp_solver.options_set('rti_phase', 1)
@@ -212,13 +197,15 @@ def main():
                 
             else:
                 # solve ocp and get next control input
+                ocp_solver.solve_for_x0(x0_bar = simX[i,:])
                 simU[i,:] = ocp_solver.solve_for_x0(x0_bar = simX[i, :])
                 t[i] = ocp_solver.get_stats('time_tot')
 
             # simulate system
             simZ[i,:] = ocp_solver.get(0, "z")
             simX[i+1, :] = integrator.simulate(x=simX[i, :], u=simU[i,:])
-            # get solution
+
+            # Testing the ocp solver and comparing it to the integrator
             if plot_every_stage:
                 for j in range(N_shrinking):
                     simX_temp[j,:] = ocp_solver.get(j, "x")
@@ -228,11 +215,22 @@ def main():
                 print(ocp_solver.get_cost())
                 print(simX_temp[:,2])
                 print(simU_temp)
-                plot_crop(np.linspace(0, N_shrinking*Ts, N_shrinking+1), Fmax, Fmin, simU_temp, simX_temp, energy_price_array=energy_prices, photoperiod_array=photoperiod_values, eod_array=end_of_day_values,
+                
+                plot_crop(np.linspace(0, N_shrinking*Ts, N_shrinking+1), Fmax, Fmin, simU_temp, simX_temp, energy_price_array=data_dict['energy'][i:i + N_shrinking], photoperiod_array=data_dict['photoperiod'][i:i+N_shrinking],
                         Z_labels=Z_labels,Z_true=simZ_temp,min_DLI= min_DLI, max_DLI=max_DLI,plot_all=True,
                         states_labels=states_labels,first_plot=first_plot, latexify=False)
-        
-        
+                # Testing to see the differences between integrator and solver
+                for j in range(1,N_shrinking):
+                   simX_temp2[j,:] = integrator.simulate(x=simX_temp2[j-1, :], u=simU_temp[j-1,:])
+                simX_temp2[N_shrinking, :] = integrator.simulate(x=simX_temp2[-1, :], u=simU_temp[-1, :])
+                print('-'*30)
+                print('Simulated FW state from the OcpSolver')
+                print(simX_temp[:,2])
+                print('-'*40)
+                print('Simulated FW state from the SimSolver')
+                print(simX_temp2[:,2])
+
+
         # evaluate timings
         if use_RTI:
             # scale to milliseconds
@@ -246,7 +244,7 @@ def main():
             # scale to milliseconds
             t *= 1000
             print(f'Computation time in ms: min {np.min(t):.3f} median {np.median(t):.3f} max {np.max(t):.3f}')
-        plot_crop(np.linspace(0, Tsim, Nsim+1), Fmax, Fmin, simU, simX,energy_price_array = closed_loop_prices[:Nsim], photoperiod_array=closed_loop_pp_values[:Nsim], eod_array=closed_loop_eod_values[:Nsim],
+        plot_crop(np.linspace(0, Tsim, Nsim+1), Fmax, Fmin, simU, simX,energy_price_array = data_dict['energy'][:Nsim], photoperiod_array=data_dict['photoperiod'][:Nsim],
                   Z_true=simZ, Z_labels=Z_labels,  min_DLI=min_DLI, max_DLI=max_DLI,
                   plot_all=True, states_labels=states_labels, first_plot=first_plot ,latexify=False)
 if __name__ == "__main__":
