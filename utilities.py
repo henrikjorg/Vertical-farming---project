@@ -1,7 +1,7 @@
 import numpy as np
 from config import *
 from scipy.interpolate import griddata
-
+import json
 
 def net_radiation_equation(PAR_flux, CAC, rho_r):
     """
@@ -57,7 +57,7 @@ def aerodynamical_resistance_eq(uninh_air_vel, LAI, leaf_diameter):
     Returns:
     - Aerodynamic resistance (s/m): The resistance to heat and vapor flux from the canopy to the atmosphere.
     """
-    return 350 * np.sqrt((leaf_diameter / uninh_air_vel)) * 1 / LAI
+    return 350 * np.sqrt((leaf_diameter / uninh_air_vel)) * 1 / (LAI + 0.001)
 
 # Environmental values from Carotti, with optimal Values written off the plots of Talbot
 PPFD_values = np.array([200, 200, 200, 400, 400, 400, 750, 750, 750])
@@ -225,3 +225,12 @@ def estimate_Chi_surface(air_temperature, surface_temperature):
     vapor_concentration_air_based = rho_sat_air + delta_rho
     
     return vapor_concentration_air_based
+
+def load_config(file_path: str) -> dict:
+    """Load configuration from a JSON file."""
+    if file_path == 'opt_config.json':
+        with open('mpc_optimization/' + file_path, 'r') as file:
+            return json.load(file)
+    else:
+        with open(file_path, 'r') as file:
+            return json.load(file)

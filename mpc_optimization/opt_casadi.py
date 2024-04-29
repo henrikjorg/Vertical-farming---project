@@ -14,8 +14,8 @@ import casadi as ca
 from acados_template import AcadosOcp, AcadosOcpSolver
 from mpc_optimization.opt_crop_model import export_biomass_ode_model
 from mpc_optimization.opt_setup_solver import opt_setup
-from mpc_optimization.opt_utils import plot_crop, generate_energy_price, generate_photoperiod_values, generate_start_of_night_array, print_ocp_setup_details, generate_end_of_day_array
-from data.utils import fetch_electricity_prices
+from mpc_optimization.opt_utils import *
+
 INF = 1e12
 # import acados.interfaces.acados_template as at
 def load_config(file_path: str) -> dict:
@@ -34,35 +34,63 @@ def solver_set_new_horizon(solver, new_horizon):
     solver.solver_options["time_steps"] = solver.solver_options["time_steps"][:new_horizon]
     solver.solver_options["sim_method_num_steps"] = solver.solver_options["sim_method_num_steps"][:new_horizon]
     solver.N = new_horizon
-def update_parameters_and_constraints(N_horizon, data_dict, solver, integrator, max_DLI, sim_iter):
+def update_parameters_and_constraints(N_horizon, data_dict, solver, integrator, max_DLI, min_DLI, Fmax, Fmin, ewl = 0, ewh = 300, sim_iter=None):
+    print(data_dict)
     for j in range(N_horizon):
         solver.set(j, 'p', np.array([data_dict['energy'][sim_iter + j], data_dict['photoperiod'][sim_iter + j], data_dict['eod'][sim_iter + j], data_dict['son'][sim_iter +j]]))
-        if data_dict['eod'][sim_iter + j]:
-                solver.constraints_set(j, "lh", np.array([-INF,-INF,0]))
-                solver.constraints_set(j, "uh", np.array([INF, max_DLI, INF]))
-        elif data_dict['photoperiod'][sim_iter + j]:
-                solver.constraints_set(j, "lh", np.array([-1e-4,-INF,-INF]))
-                solver.constraints_set(j, "uh", np.array([1e-4, INF, INF]))
-    if data_dict['son'][sim_iter + N_horizon]:
-        solver.constraints_set(N_horizon, "lh", np.array([-INF, -INF]))
-        solver.constraints_set(N_horizon, "uh", np.array([max_DLI, INF]))
+        solver.constraints_set(j, "lbu", np.array([Fmin]))
+        solver.constraints_set(j, "ubu", np.array([Fmax]))
+        """if (j + sim_iter) % 24 == 23: # End of day
+            given_day_max_DLI = max_DLI * (j+sim_iter + 1)/24
+            
+            print('These should be ints: ', given_day_max_DLI)
+            
+            solver.constraints_set(j, "lbx", np.array([-INF, -INF, -INF, -INF, -INF, -INF, -INF,-INF]))
+            solver.constraints_set(j, "ubx", np.array([INF, INF, INF, INF, INF, INF, given_day_max_DLI, INF]))
+        elif (j + sim_iter) % 24 == 0:
+            given_day_min_DLI = min_DLI * (j+sim_iter + 1)/24
+            solver.constraints_set(j, "lbx", np.array([-INF, -INF, -INF, -INF, -INF, -INF, given_day_min_DLI,-INF]))
+            solver.constraints_set(j, "ubx", np.array([INF, INF, INF, INF, INF, INF, INF, INF]))
+        else:
+            solver.constraints_set(j, "lbx", np.array([-INF, -INF, -INF, -INF, -INF, -INF, -INF,-INF]))
+            solver.constraints_set(j, "ubx", np.array([INF, INF, INF, INF, INF, INF, INF, INF]))"""
+        """if data_dict['photoperiod'][sim_iter + j]:
+            solver.constraints_set(j, "lbu", np.array([0]))
+            solver.constraints_set(j, "ubu", np.array([0]))
+        else:
+            solver.constraints_set(j, "lbu", np.array([Fmin]))
+            solver.constraints_set(j, "ubu", np.array([Fmax]))"""
+        """if not data_dict['eod'][sim_iter + j]:
+            solver.constraints_set(j, "lh", np.array([0]))
+            solver.constraints_set(j, "uh", np.array([max_DLI]))
+            
+        else:
+            solver.constraints_set(j, "lh", np.array([min_DLI]))
+            solver.constraints_set(j, "uh", np.array([max_DLI]))"""
+        #if j > 0:
+        #    solver.set(j, "lbx", np.array([-INF, -INF]))
+        #    solver.set(j, "ubx", np.array([INF,INF]))
+    # Setting the very last constraint
+    # count the number of light days
+    # TODO
 
+    """if (sim_iter + N_horizon) % 24 == 0:
+
+        last_day_min_DLI = min_DLI * (sim_iter + N_horizon) / 24
+        last_day_max_DLI = max_DLI * (sim_iter + N_horizon) / 24
+        print(last_day_max_DLI, last_day_min_DLI)
+        
+        solver.constraints_set(N_horizon, "lbx", np.array([-INF, -INF, -INF, -INF, -INF, -INF, last_day_min_DLI,-INF]))
+        #solver.constraints_set(N_horizon, "ubx", np.array([INF, INF, INF, INF, INF, INF, last_day_max_DLI, INF]))
+    else:
+        raise
+    end_horizon_min_DLI = 0
+    end_horizon_max_DLI = 0"""
+    #solver.set(N_horizon, "lbx", np.array([98, N_horizon*min_DLI/24]))
+    #solver.set(N_horizon, "ubx", np.array([200, N_horizon*max_DLI/24]))
     integrator.set('p', np.array([data_dict['energy'][sim_iter], data_dict['photoperiod'][sim_iter], data_dict['eod'][sim_iter], data_dict['son'][sim_iter]]))
 
-def generate_data_dict(photoperiod_length=None, darkperiod_length=None, Nsim=None, shrink=False, N_horizon = None):
-    # N_horizon only used if shrink = False
-    data_dict = {}
-    if shrink:
-        data_dict['energy'] = fetch_electricity_prices('data/Spotprices_norway.csv', length=Nsim)
-        data_dict['photoperiod'] = generate_photoperiod_values(photoperiod_length=photoperiod_length, darkperiod_length=darkperiod_length, Nsim=Nsim)
-        data_dict['eod'] = generate_end_of_day_array(photoperiod_length=photoperiod_length, darkperiod_length=darkperiod_length, Nsim=Nsim)
-        data_dict['son'] = generate_start_of_night_array(photoperiod_length=photoperiod_length, darkperiod_length=darkperiod_length, Nsim=Nsim)
-    else:
-        data_dict['energy'] = fetch_electricity_prices('data/Spotprices_norway.csv', length=Nsim+N_horizon)
-        data_dict['photoperiod'] = generate_photoperiod_values(photoperiod_length=photoperiod_length, darkperiod_length=darkperiod_length, Nsim=Nsim+N_horizon)
-        data_dict['eod'] = generate_end_of_day_array(photoperiod_length=photoperiod_length, darkperiod_length=darkperiod_length, Nsim=Nsim+N_horizon)
-        data_dict['son'] = generate_start_of_night_array(photoperiod_length=photoperiod_length, darkperiod_length=darkperiod_length, Nsim=Nsim+N_horizon)
-    return data_dict
+
 
 def main():
     crop_config = load_config('crop_model_config.json')
@@ -76,6 +104,7 @@ def main():
     first_plot = opt_config['first_plot']
     Z_labels = opt_config['Z_labels']
     plot_Z = opt_config['plot_Z']
+    num_initial_guess = opt_config['num_initial_guess']
     if not plot_Z:
         Z_labels = None
     plot_every_stage = opt_config['plot_every_stage']
@@ -88,6 +117,18 @@ def main():
     Tsim = DaysSim * 24 * 3600   # Tsim: The total time of the whole simulation (closed loop)
     Ts = opt_config['Ts']       # Ts: the sampling time of one step
     N_horizon = opt_config['N_horizon'] # N_horizon: The number of steps within the horizon
+    if N_horizon <= 24:
+        end_weight_lower = 2
+        end_weight_higher = 5
+    elif N_horizon <= 24*3:
+        end_weight_lower = 2
+        end_weight_higher = 18
+    elif N_horizon <= 24*10:
+        end_weight_lower = 0
+        end_weight_higher = 300
+    else:
+        end_weight_lower = 30
+        end_weight_higher = 300
 
     Tf = N_horizon * Ts         # Tf: The total time of the horizon
     if closed_loop:
@@ -103,7 +144,7 @@ def main():
     ocp_solver, integrator, ocp = opt_setup(Crop=Crop, Env=Env, opt_config=opt_config, x0=x0
                                        , Fmax=Fmax, Fmin=Fmin, N_horizon=N_horizon, Ts=Ts, Tf=Tf, ocp_type=ocp_type,RTI=use_RTI)
 
-    update_parameters_and_constraints(N_horizon=N_horizon, data_dict=data_dict, solver=ocp_solver, integrator=integrator, max_DLI=max_DLI, sim_iter=0)
+    update_parameters_and_constraints(N_horizon=N_horizon, data_dict=data_dict, solver=ocp_solver, integrator=integrator, max_DLI=max_DLI, min_DLI=min_DLI, Fmax=Fmax, Fmin=Fmin, ewl = end_weight_lower, ewh = end_weight_higher, sim_iter=0)
     
     # Printing the OCP constraints and cost function (if available)
 
@@ -117,7 +158,7 @@ def main():
     simZ = np.zeros((Nsim, nz))
     simX[0,:] = x0
     # do some initial iterations to start with a good initial guess
-    num_iter_initial =5
+    num_iter_initial = num_initial_guess
     for _ in range(num_iter_initial):
         ocp_solver.solve_for_x0(x0_bar = x0)
     if not closed_loop: # Open loop
@@ -136,7 +177,7 @@ def main():
 
         print(ocp_solver.get_cost())
 
-        plot_crop(np.linspace(0, Tf, Nsim+1), Fmax, Fmin, simU, simX, energy_price_array=data_dict['energy'][:Nsim], photoperiod_array=data_dict['photoperiod'][:Nsim+1], Z_true= simZ, Z_labels=Z_labels,
+        plot_crop(np.linspace(0, Tf, Nsim+1), Fmax, Fmin, simU, simX, energy_price_array=data_dict['energy'][:Nsim], photoperiod_array=data_dict['photoperiod'][:Nsim+1], eod_array=data_dict['eod'][:Nsim], Z_true= simZ, Z_labels=Z_labels,
                 min_DLI= min_DLI, max_DLI=max_DLI,plot_all=True,
                   states_labels=states_labels,first_plot=first_plot, latexify=False)
     else: # Closed loop
@@ -170,7 +211,8 @@ def main():
             simZ_temp = np.zeros((N_shrinking, nz))
             simU_temp = np.zeros((N_shrinking, nu))
             if i > 0:
-                update_parameters_and_constraints(N_horizon=N_shrinking, data_dict=data_dict, solver=ocp_solver, integrator=integrator, max_DLI=max_DLI, sim_iter=i)
+                update_parameters_and_constraints(N_horizon=N_shrinking, data_dict=data_dict, solver=ocp_solver, integrator=integrator, max_DLI=max_DLI, min_DLI=min_DLI
+                                                  ,Fmax=Fmax,Fmin=Fmin,ewl=end_weight_lower, ewh=end_weight_higher, sim_iter=i)
                 for _ in range(num_iter_initial):
                     ocp_solver.solve_for_x0(x0_bar = simX[i,:])
             # Testing stuff
@@ -201,10 +243,7 @@ def main():
                 simU[i,:] = ocp_solver.solve_for_x0(x0_bar = simX[i, :])
                 t[i] = ocp_solver.get_stats('time_tot')
 
-            # simulate system
-            simZ[i,:] = ocp_solver.get(0, "z")
-            simX[i+1, :] = integrator.simulate(x=simX[i, :], u=simU[i,:])
-
+            
             # Testing the ocp solver and comparing it to the integrator
             if plot_every_stage:
                 for j in range(N_shrinking):
@@ -215,20 +254,25 @@ def main():
                 print(ocp_solver.get_cost())
                 print(simX_temp[:,2])
                 print(simU_temp)
-                
+                print('z: ')
+                print(simZ_temp)
+                print('-----------')
                 plot_crop(np.linspace(0, N_shrinking*Ts, N_shrinking+1), Fmax, Fmin, simU_temp, simX_temp, energy_price_array=data_dict['energy'][i:i + N_shrinking], photoperiod_array=data_dict['photoperiod'][i:i+N_shrinking],
-                        Z_labels=Z_labels,Z_true=simZ_temp,min_DLI= min_DLI, max_DLI=max_DLI,plot_all=True,
+                        eod_array=data_dict['eod'][i :i + N_shrinking], Z_labels=Z_labels,Z_true=simZ_temp,min_DLI= min_DLI, max_DLI=max_DLI,plot_all=True,
                         states_labels=states_labels,first_plot=first_plot, latexify=False)
                 # Testing to see the differences between integrator and solver
                 for j in range(1,N_shrinking):
                    simX_temp2[j,:] = integrator.simulate(x=simX_temp2[j-1, :], u=simU_temp[j-1,:])
-                simX_temp2[N_shrinking, :] = integrator.simulate(x=simX_temp2[-1, :], u=simU_temp[-1, :])
+                simX_temp2[N_shrinking, :] = integrator.simulate(x=simX_temp2[-2, :], u=simU_temp[-1, :])
                 print('-'*30)
-                print('Simulated FW state from the OcpSolver')
+                print('Simulated FW state from the OcpSolver. Shape: ', simX_temp[:,2].shape)
                 print(simX_temp[:,2])
                 print('-'*40)
-                print('Simulated FW state from the SimSolver')
+                print('Simulated FW state from the SimSolver. Shape: ', simX_temp2[:,2].shape)
                 print(simX_temp2[:,2])
+            # simulate system
+            simZ[i,:] = ocp_solver.get(0, "z")
+            simX[i+1, :] = integrator.simulate(x=simX[i, :], u=simU[i,:])
 
 
         # evaluate timings

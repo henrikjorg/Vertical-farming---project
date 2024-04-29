@@ -47,7 +47,7 @@ def opt_setup(Crop, Env, opt_config, x0, Fmax, Fmin, N_horizon, Ts,Tf, ocp_type=
                      0, # Fresh mass one shoot      2
                      0, # DLI uppert (one pp per day!)     3
                      0, # DLI lower bound           4
-                     1000, # Average hourly cost       5
+                     1, # Average hourly cost       5
                      0, # Avg PPFD during photoperiod  6
                      0
                      ])
@@ -62,6 +62,8 @@ def opt_setup(Crop, Env, opt_config, x0, Fmax, Fmin, N_horizon, Ts,Tf, ocp_type=
         ocp.constraints.ubu = np.array([Fmax])
         ocp.constraints.idxbu = np.array([0])
         ocp.constraints.x0 = x0
+
+        
         #x0l = x0
         #x0l[7] = 0
         #x0u = x0
@@ -73,21 +75,28 @@ def opt_setup(Crop, Env, opt_config, x0, Fmax, Fmin, N_horizon, Ts,Tf, ocp_type=
 
         # Constraints on the intermediate stages
         #       DLI constraint: -100, 
-        #ocp.constraints.lbx = np.array([-1, -1])
-        #ocp.constraints.ubx = np.array([max_DLI, 10000])
-        #ocp.constraints.idxbx = np.array([3, 4])
+        #ocp.constraints.lbx = np.array([-INF, -INF, -INF, -INF, -INF, -INF, -INF,-INF])
+        #ocp.constraints.ubx = np.array([ INF, INF, INF, INF, INF, INF, INF, INF])
+        #ocp.constraints.idxbx = np.array([0,1,2,3,4,5,6,7])
+        
+        # 10 days: 35, 40
+        # 2 days: 
+
+        ocp.constraints.lbx_e = np.array([5.5, -INF])
+        ocp.constraints.ubx_e = np.array([200, INF])
+        ocp.constraints.idxbx_e = np.array([2, 6])
         #
-        #ocp.constraints.lbx = np.array([-1, -1])
-        #ocp.constraints.ubx = np.array([max_DLI,10000])
-        #ocp.constraints.idxbx = np.array([3,4])
+        #ocp.constraints.lbx = np.array([-INF , -INF])
+        #ocp.constraints.ubx = np.array([INF, INF])
+        #ocp.constraints.idxbx = np.array([2, 6])
 
         tol = 200
-        ocp.constraints.lh = np.array([-INF, -INF, -INF])
-        ocp.constraints.uh = np.array([INF, INF, INF])
-        ocp.constraints.lh_0 = np.array([-INF, -INF, -INF])
-        ocp.constraints.uh_0 = np.array([INF, INF, INF])
-        ocp.constraints.lh_e = np.array([-INF, -INF])
-        ocp.constraints.uh_e = np.array([INF, INF])
+        #ocp.constraints.lh = np.array([ -INF])
+        #ocp.constraints.uh = np.array([INF])
+        #ocp.constraints.lh_0 = np.array([-INF])
+        #ocp.constraints.uh_0 = np.array([INF])
+        #ocp.constraints.lh_e = np.array([-INF, -INF])
+        #ocp.constraints.uh_e = np.array([INF, INF])
 
     
 
@@ -105,7 +114,7 @@ def opt_setup(Crop, Env, opt_config, x0, Fmax, Fmin, N_horizon, Ts,Tf, ocp_type=
     #ocp.solver_options.nlp_solver_max_iter = opt_config['nlp_solver_max_iter']
 
     #ocp.solver_options.qp_solver_iter_max = opt_config["qp_solver_iter_max"]
-    #ocp.solver_options.nlp_solver_tol_stat = opt_config['nlp_solver_tol_stat']
+    ocp.solver_options.nlp_solver_tol_stat = opt_config['nlp_solver_tol_stat']
 
 
     # set prediction horizon

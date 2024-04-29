@@ -27,14 +27,18 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.;
 #
-
+import sys
+ 
+# setting path
+sys.path.append('../VF-SIMULATION')
+from data.utils import fetch_electricity_prices
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from acados_template import latexify_plot
 
 
-def plot_crop(t, u_max, u_min, U, X_true, X_est=None, Y_measured=None, energy_price_array=None, photoperiod_array=None, Z_true = None, Z_labels = None, min_DLI=None, max_DLI=None, latexify=False, plt_show=True,
+def plot_crop(t, u_max, u_min, U, X_true, X_est=None, Y_measured=None, energy_price_array=None, photoperiod_array=None,eod_array=None, Z_true = None, Z_labels = None, min_DLI=None, max_DLI=None, latexify=False, plt_show=True,
                plot_all=False, states_labels=[], first_plot=[], X_true_label=None):
     if latexify:
         latexify_plot()
@@ -101,9 +105,17 @@ def plot_crop(t, u_max, u_min, U, X_true, X_est=None, Y_measured=None, energy_pr
     # Plot states for the first figure
     for j, label in enumerate(total_plots):
         idx = states_labels.index(label)
-        axs1[j+2].plot(days, X_true[:, idx])
+        axs1[j+2].plot(days, X_true[idx, :])
         if label == '$DLI_u$' and min_DLI is not None:
             axs1[j+2].hlines([min_DLI, max_DLI], days[0], days[-1], linestyles='dashed', colors=['orange', 'purple'], alpha=0.7)
+        if label == '$DLI_u$':
+            r = len(days)-1
+            for i in range(r):
+                color = 'red' if eod_array[i] == 0 else 'green'
+                start = days[i]
+                
+                end = days[i + 1]
+                axs1[j+2].fill_betweenx([0, max_DLI], start, end, color=color, step='pre', alpha=0.08)
         if WITH_ESTIMATION:
             axs1[j+2].plot(days_mhe, X_est[:, idx], '--', label='Estimated')
             axs1[j+2].plot(days, Y_measured[:, idx], 'x', label='Measured')
@@ -115,6 +127,14 @@ def plot_crop(t, u_max, u_min, U, X_true, X_est=None, Y_measured=None, energy_pr
     if Z_labels is not None:
         for j, label in enumerate(Z_labels):
             if Z_true.shape[0] > 1:
+                if label == '$z_1$':
+                    r = len(days)-1
+                    for i in range(r):
+                        color = 'red' if eod_array[i] == 0 else 'green'
+                        start = days[i]
+                        
+                        end = days[i + 1]
+                        axs2[j+2].fill_betweenx([0, max_DLI], start, end, color=color, step='pre', alpha=0.08)
                 axs2[j+2].plot(days[:-1], Z_true[:, j])
             else:
                 axs2[j+2].plot(days, np.append(Z_true[:, j], Z_true[:, j]))
@@ -122,6 +142,74 @@ def plot_crop(t, u_max, u_min, U, X_true, X_est=None, Y_measured=None, energy_pr
             axs2[j+2].set_ylabel(label)
             axs2[j+2].set_xlabel('$t$')
             axs2[j+2].grid()
+
+    plt.subplots_adjust(hspace=0.5)
+    if plt_show:
+        plt.show()
+
+def plot_crop_casadi(t, u_max, u_min, U, X_true,  energy_price_array=None, photoperiod_array=None,eod_array=None, min_DLI=None, max_DLI=None, latexify=False, plt_show=True,
+               states_labels=[], first_plot=[], min_points=[], max_points=[], end_mass=[]):
+    if latexify:
+        latexify_plot()
+    if len(states_labels) == 0:
+        raise IndexError('No state labels provided')
+
+
+    days = t / (60*60)
+
+    total_plots = states_labels
+    subplot_rows = len(total_plots) + 2  # +2 for price and input plots
+
+    # First figure setup
+    fig1, axs1 = plt.subplots(subplot_rows, 1, figsize=(10, min(subplot_rows * 3, 9)))
+
+    # Function to plot energy price and input
+    def plot_price_input(axs, days, energy_price_array, U, u_max, u_min, photoperiod_array, label_suffix=''):
+        
+        axs[0].step(days, np.append(energy_price_array, [energy_price_array[-1]]), where='post', label='Energy Price' + label_suffix, color='r')
+
+        axs[0].set_ylabel('$price$')
+        axs[0].set_xlabel('$t$')
+        axs[0].grid()
+        if U[0,:].shape[0] > 1:
+            
+            axs[1].step(days[:-1], U[0,:], where='post', label='Input' + label_suffix, color='r')
+                
+        else:
+
+            axs[1].step(days, np.append(0, U[0,:]), where='pre', label='Input' + label_suffix, color='r')
+               
+        axs[1].hlines([u_max, u_min], days[0], days[-2], linestyles='dashed', colors=['g', 'b'], alpha=0.7)
+        axs[1].set_ylabel('$u$')
+        axs[1].set_xlabel('$t$')
+        axs[1].grid()
+        
+        r = len(days)-1
+        for i in range(r):
+            color = 'red' if eod_array[i] > 0 else 'green'
+            start = days[i]
+            
+            end = days[i + 1]
+            axs[1].fill_betweenx([0, u_max], start, end, color=color, step='pre', alpha=0.08)
+
+        
+    # Plot energy price and input for both figures
+    plot_price_input(axs1, days, energy_price_array, U, u_max, u_min, photoperiod_array)
+    # Plot states for the first figure
+    for j, label in enumerate(total_plots):
+        idx = states_labels.index(label)
+        axs1[j+2].plot(days, X_true[idx, :])
+        if label == 'dli':
+            for ind, y in min_points:
+
+                axs1[j+2].scatter(days[ind], y, marker='x', s=4)
+            for ind, y in max_points:
+                axs1[j+2].scatter(days[ind], y, marker='x', s=4)
+        if label == 'fw':
+            axs1[j+2].scatter(days[-1], end_mass, marker='x', s=6)
+        axs1[j+2].set_ylabel(label)
+        axs1[j+2].set_xlabel('$t$')
+        axs1[j+2].grid()
 
     plt.subplots_adjust(hspace=0.5)
     if plt_show:
@@ -240,3 +328,18 @@ def print_ocp_setup_details(ocp):
     
     # Additional details if needed
     # This part can be extended based on what specific details are crucial for your debugging process.
+def generate_data_dict(photoperiod_length=None, darkperiod_length=None, Nsim=None, shrink=False, N_horizon = None):
+    # N_horizon only used if shrink = False
+    data_dict = {}
+    if shrink:
+        data_dict['energy'] = fetch_electricity_prices('data/Spotprices_norway.csv', length=Nsim)
+        data_dict['photoperiod'] = generate_photoperiod_values(photoperiod_length=photoperiod_length, darkperiod_length=darkperiod_length, Nsim=Nsim)
+        data_dict['eod'] = generate_end_of_day_array(photoperiod_length=photoperiod_length, darkperiod_length=darkperiod_length, Nsim=Nsim)
+        data_dict['son'] = generate_start_of_night_array(photoperiod_length=photoperiod_length, darkperiod_length=darkperiod_length, Nsim=Nsim)
+    else:
+        data_dict['energy'] = fetch_electricity_prices('data/Spotprices_norway.csv', length=Nsim+N_horizon)
+        data_dict['photoperiod'] = generate_photoperiod_values(photoperiod_length=photoperiod_length, darkperiod_length=darkperiod_length, Nsim=Nsim+N_horizon)
+        data_dict['eod'] = generate_end_of_day_array(photoperiod_length=photoperiod_length, darkperiod_length=darkperiod_length, Nsim=Nsim+N_horizon)
+        data_dict['son'] = generate_start_of_night_array(photoperiod_length=photoperiod_length, darkperiod_length=darkperiod_length, Nsim=Nsim+N_horizon)
+    return data_dict
+
