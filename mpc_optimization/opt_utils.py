@@ -36,7 +36,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from acados_template import latexify_plot
-
+import casadi as ca
+from utilities import *
 
 def plot_crop(t, u_max, u_min, U, X_true, X_est=None, Y_measured=None, energy_price_array=None, photoperiod_array=None,eod_array=None, Z_true = None, Z_labels = None, min_DLI=None, max_DLI=None, latexify=False, plt_show=True,
                plot_all=False, states_labels=[], first_plot=[], X_true_label=None):
@@ -343,3 +344,165 @@ def generate_data_dict(photoperiod_length=None, darkperiod_length=None, Nsim=Non
         data_dict['son'] = generate_start_of_night_array(photoperiod_length=photoperiod_length, darkperiod_length=darkperiod_length, Nsim=Nsim+N_horizon)
     return data_dict
 
+def get_explicit_model(Crop, Env, is_rate_degradation=False, c_degr=400, ts=3600, photoperiod_length=24):
+    # Creating the states
+    x_ns = ca.MX.sym('x_ns')
+    x_s = ca.MX.sym('x_s')
+    x_fw = ca.MX.sym('x_fw')
+    DLI = ca.MX.sym('DLI')
+    u_light = ca.MX.sym('u_light')
+    u_prev = ca.MX.sym('u_prev')
+
+    x = ca.vertcat(x_ns, x_s, x_fw, DLI)
+
+    u_control = ca.vertcat(u_light, u_prev)
+
+    nx = x.shape[0]
+    nu = u_control.shape[0]
+    # The model
+    T_air = Env.T_air
+    CO2_air = Env.CO2
+
+
+    PAR_flux = u_light * 0.217
+
+    # Calculate stomatal and aerodynamic conductances (reciprocals of resistances)
+    LAI = SLA_to_LAI(SLA=Crop.SLA, c_tau=Crop.c_tau, leaf_to_shoot_ratio=Crop.leaf_to_shoot_ratio, X_s=x_s, X_ns=x_ns)
+    g_stm = 1 / stomatal_resistance_eq(u_light)
+
+    g_bnd = 1 / aerodynamical_resistance_eq(Env.air_vel, LAI=LAI, leaf_diameter=Crop.leaf_diameter)
+
+
+    # Dynamics equations adapted for CasADi
+    g_car = Crop.c_car_1 * T_air**2 + Crop.c_car_2 * T_air + Crop.c_car_3
+    g_CO2 = 1 / (1 / g_bnd + 1 / g_stm + 1 / g_car)
+    Gamma = Crop.c_Gamma * Crop.c_q10_Gamma ** ((T_air - 20) / 10)
+
+    #ULM_degratation = exp(- (PPFD - last_u)**2/400**2)
+    epsilon_biomass = Crop.c_epsilon * (CO2_air - Gamma) / (CO2_air + 2 * Gamma)
+    if is_rate_degradation:
+        f_phot_max = (epsilon_biomass * PAR_flux * g_CO2 * Crop.c_w * (CO2_air - Gamma)) / (epsilon_biomass * PAR_flux + g_CO2 * Crop.c_w * (CO2_air - Gamma))*ca.exp(-((u_light-u_prev)/c_degr)**2)
+    else:
+        f_phot_max = (epsilon_biomass * PAR_flux * g_CO2 * Crop.c_w * (CO2_air - Gamma)) / (epsilon_biomass * PAR_flux + g_CO2 * Crop.c_w * (CO2_air - Gamma))
+
+    f_phot = (1 - np.exp(-Crop.c_K * LAI)) * f_phot_max #* ULM_degratation
+    f_resp = (Crop.c_resp_sht * (1 - Crop.c_tau) * x_s + Crop.c_resp_rt * Crop.c_tau * x_s) * Crop.c_q10_resp ** ((T_air - 25) / 10)
+    dw_to_fw = (1 - Crop.c_tau) / (Crop.dry_weight_fraction * Crop.plant_density)
+    r_gr = Crop.c_gr_max * x_ns / (Crop.c_gamma * x_s + x_ns + 0.001) * Crop.c_q10_gr ** ((T_air - 20) / 10)
+    dX_ns = Crop.c_a * f_phot - r_gr * x_s - f_resp - (1 - Crop.c_beta) / Crop.c_beta * r_gr * x_s
+    dX_s = r_gr * x_s
+
+    f_expl_day = ca.vertcat(dX_ns,                               # Non-structural dry weight per m^2
+                    dX_s,                                # Structural dry weight per m^2
+                    (dX_ns + dX_s) * dw_to_fw ,           # Fresh weight of the shoot of one plant
+                    u_light/(ts * photoperiod_length)#PPFD/(Ts*N_horizon),                 # Average PPFD per day
+                    )
+    f_day = ca.Function('f', [x, u_control], [f_expl_day], ['x', 'u_control'], ['ode'])
+    intg_options = {
+        'tf' : ts,
+        'simplify' : True
+        
+    }
+
+    dae_day = {
+        'x': x,
+        'p': u_control,
+        'ode': f_day(x, u_control)
+    }
+
+    intg_day = ca.integrator('intg', 'rk', dae_day, intg_options)
+
+    res_day = intg_day(x0=x, p= u_control)
+
+    x_next_day = res_day['xf']
+
+    # Simplifying API to (x,u) -> (x_next)
+    # F simulates the function for one time step
+    F_day = ca.Function('F', [x,u_control], [x_next_day], ['x', 'u_control'], ['x_next'])
+
+    return F_day, nx, nu
+def mpc_setup_dynamic(F_day, nx, nu, x0, N_horizon, l_end_mass, u_end_mass, min_DLI, max_DLI, u_min, u_max, data_dict, solver='ipopt'):
+    # OPTIMAL CONTROL PROBLEM
+    opti = ca.Opti()
+
+    x = opti.variable(nx, N_horizon+1)
+    u = opti.variable(nu, N_horizon)
+
+    p = opti.parameter(nx, 1)
+    energy = opti.parameter(1, N_horizon)
+    # setting the objective
+    obj = ca.dot(u[0,:], energy)
+
+    # Parameters for penalties
+    penalty_weight = 1e6  # Adjust this weight to increase/decrease the penalty
+
+    # Penalty for being below lower bound
+    penalty_below = ca.fmax(0, l_end_mass - x[2, -1])
+    # Penalty for exceeding upper bound
+    penalty_above = ca.fmax(0, x[2, -1] - u_end_mass)
+    obj += penalty_weight * (penalty_below**2 + penalty_above**2)
+
+
+    for k in range(N_horizon+1):
+        if (k) % 24 == 0 and k > 0:
+            penalty_below_DLI = ca.fmax(0, min_DLI - x[3,k] + x[3,k-24])
+            penalty_above_DLI = ca.fmax(0,  x[3,k] - x[3,k-24] - max_DLI)
+            obj += penalty_weight* (penalty_below_DLI**2 + penalty_above_DLI**2)
+            
+            
+    opti.minimize(obj)
+
+
+    for k in range(N_horizon):
+        opti.subject_to(x[:,k+1] == F_day(x[:,k], u[:,k]))
+        opti.subject_to([u[0,k] <= u_max, u[0,k] >= 0])
+
+    # Setting u_prev
+    opti.subject_to(u[1,0] == 0)
+    for k in range(1, N_horizon):
+        opti.subject_to(u[1, k] == u[0, k-1])
+
+    opti.subject_to(x[:,0] == p)
+
+
+    opti.solver('ipopt')
+
+    return opti, obj, x, u,p,  energy
+def get_min_max_DLI_points(TLI, min_DLI, max_DLI):
+
+    last = 0
+
+    min_points = []
+    max_points = []
+    for k in range(TLI.shape[1]):
+        if (k) % 24 == 0 and k > 0:
+            min_points.append((k, last + min_DLI))
+            max_points.append((k, last + max_DLI))
+            last = TLI[k]
+    return min_points, max_points
+def print_cost_and_energy_consumption(x, u, energy):
+    print('Total cost: ')
+    print(u[0,:].shape)
+    print(energy.shape)
+    print(ca.dot(u[0,:].T, energy))
+    print('Energy usage: ')
+    print(x[3, -1])
+def get_params(opt_config):
+    # Integrator settings
+    N_horizon = opt_config['N_horizon']
+    ts  = opt_config['ts']
+    
+    solver = opt_config['solver']
+
+    # Growth settings
+    photoperiod_length = opt_config['photoperiod_length']
+    u_max = opt_config['u_max']
+    u_min = opt_config['u_min']
+    min_DLI = opt_config['min_DLI']
+    max_DLI = opt_config['max_DLI']
+    l_end_mass = opt_config['lower_terminal_mass']
+    u_end_mass = opt_config['upper_terminal_mass']
+
+    is_rate_degradation = opt_config['is_rate_degradation']
+    c_degr = opt_config['c_degr']
+    return N_horizon, ts, solver, photoperiod_length, u_max, u_min, min_DLI, max_DLI, l_end_mass, u_end_mass, is_rate_degradation, c_degr

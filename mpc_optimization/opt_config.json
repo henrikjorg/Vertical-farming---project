@@ -6,7 +6,7 @@
     "min_DLI": 400,
     "max_DLI": 500,
     "DaysSim": 3,
-    "Ts":   3600,
+    "ts":   3600,
     "ocp_type": "lin_cost", 
     "photoperiod_length": 18,
     "darkperiod_length": 6,

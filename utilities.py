@@ -228,7 +228,7 @@ def estimate_Chi_surface(air_temperature, surface_temperature):
 
 def load_config(file_path: str) -> dict:
     """Load configuration from a JSON file."""
-    if file_path == 'opt_config.json':
+    if file_path == 'opt_config.json' or file_path == 'opt_config_casadi.json':
         with open('mpc_optimization/' + file_path, 'r') as file:
             return json.load(file)
     else:
