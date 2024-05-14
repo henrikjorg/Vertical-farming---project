@@ -1,5 +1,5 @@
 {
-    "N_horizon": 48,
+    "N_horizon": 72,
     "ts":   3600,
     "photoperiod_length": 24,
     "solver": "ipopt",
@@ -7,12 +7,12 @@
     "u_max": 450,
     "u_min": 0,
 
-    "min_DLI": 350,
+    "min_DLI": 200,
     "max_DLI": 400,
 
-    "lower_terminal_mass": 3,
+    "lower_terminal_mass": 5.4,
     "upper_terminal_mass": 1000,
-    "is_rate_degradation": 1,
+    "is_rate_degradation": 0,
     "c_degr": 400,
 
     "closed_loop": 1,

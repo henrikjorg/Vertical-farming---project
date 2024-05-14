@@ -148,8 +148,10 @@ def plot_crop(t, u_max, u_min, U, X_true, X_est=None, Y_measured=None, energy_pr
     if plt_show:
         plt.show()
 
+
+
 def plot_crop_casadi(t, u_max, u_min, U, X_true,  energy_price_array=None, photoperiod_array=None,eod_array=None, min_DLI=None, max_DLI=None, latexify=False, plt_show=True,
-               states_labels=[], first_plot=[], min_points=[], max_points=[], end_mass=[]):
+               states_labels=[], labels_to_plot=[], min_points=[], max_points=[], end_mass=[], block=False, end_time=-1, title=''):
     if latexify:
         latexify_plot()
     if len(states_labels) == 0:
@@ -158,7 +160,7 @@ def plot_crop_casadi(t, u_max, u_min, U, X_true,  energy_price_array=None, photo
 
     days = t / (60*60)
 
-    total_plots = states_labels
+    total_plots = labels_to_plot
     subplot_rows = len(total_plots) + 2  # +2 for price and input plots
 
     # First figure setup
@@ -181,7 +183,7 @@ def plot_crop_casadi(t, u_max, u_min, U, X_true,  energy_price_array=None, photo
             axs[1].step(days, np.append(0, U[0,:]), where='pre', label='Input' + label_suffix, color='r')
                
         axs[1].hlines([u_max, u_min], days[0], days[-2], linestyles='dashed', colors=['g', 'b'], alpha=0.7)
-        axs[1].set_ylabel('$u$')
+        axs[1].set_ylabel('$Light Input$')
         axs[1].set_xlabel('$t$')
         axs[1].grid()
         
@@ -200,21 +202,24 @@ def plot_crop_casadi(t, u_max, u_min, U, X_true,  energy_price_array=None, photo
     for j, label in enumerate(total_plots):
         idx = states_labels.index(label)
         axs1[j+2].plot(days, X_true[idx, :])
-        if label == 'dli':
-            for ind, y in min_points:
-
-                axs1[j+2].scatter(days[ind], y, marker='x', s=4)
-            for ind, y in max_points:
-                axs1[j+2].scatter(days[ind], y, marker='x', s=4)
-        if label == 'fw':
-            axs1[j+2].scatter(days[-1], end_mass, marker='x', s=6)
+        if label == 'DLI':
+            axs1[j+2].hlines([min_DLI, max_DLI], days[0], days[-2], linestyles='dashed', colors=['g', 'b'], alpha=0.7)
+            if len(min_points) > 0:
+                for ind, y in min_points:
+                    axs1[j+2].scatter(days[ind], y, marker='x', s=4)
+                for ind, y in max_points:
+                    axs1[j+2].scatter(days[ind], y, marker='x', s=4)
+        if label == 'Fresh weight':
+            axs1[j+2].scatter(days[end_time], end_mass, marker='x', s=6)
         axs1[j+2].set_ylabel(label)
         axs1[j+2].set_xlabel('$t$')
         axs1[j+2].grid()
-
+    fig1.suptitle(title)
     plt.subplots_adjust(hspace=0.5)
     if plt_show:
-        plt.show()
+        plt.show(block=block)
+
+
 def generate_energy_price(N_horizon, Nsim = None):
     def f(i):
         return 10 + i % 5
@@ -280,6 +285,8 @@ def generate_end_of_day_array(photoperiod_length: int, darkperiod_length: int, N
         sequence += [0] * (darkperiod_length)
     sequence = sequence[:Nsim]
     return np.array(sequence)
+
+
 def generate_start_of_night_array(photoperiod_length: int, darkperiod_length: int, Nsim: int = None):
     sequence = []
     
@@ -292,6 +299,8 @@ def generate_start_of_night_array(photoperiod_length: int, darkperiod_length: in
         sequence += [0] * (darkperiod_length-1)
     sequence = sequence[:Nsim]
     return np.array(sequence)
+
+
 def print_ocp_setup_details(ocp):
     print("Optimal Control Problem Setup Details:")
 
@@ -329,6 +338,9 @@ def print_ocp_setup_details(ocp):
     
     # Additional details if needed
     # This part can be extended based on what specific details are crucial for your debugging process.
+
+
+
 def generate_data_dict(photoperiod_length=None, darkperiod_length=None, Nsim=None, shrink=False, N_horizon = None):
     # N_horizon only used if shrink = False
     data_dict = {}
@@ -344,7 +356,8 @@ def generate_data_dict(photoperiod_length=None, darkperiod_length=None, Nsim=Non
         data_dict['son'] = generate_start_of_night_array(photoperiod_length=photoperiod_length, darkperiod_length=darkperiod_length, Nsim=Nsim+N_horizon)
     return data_dict
 
-def get_explicit_model(Crop, Env, is_rate_degradation=False, c_degr=400, ts=3600, photoperiod_length=24):
+
+def get_explicit_model(Crop, Env, is_rate_degradation=False, c_degr=400, ts=3600, photoperiod_length=24, saturation_curve_type='rectangular'):
     # Creating the states
     x_ns = ca.MX.sym('x_ns')
     x_s = ca.MX.sym('x_s')
@@ -380,12 +393,18 @@ def get_explicit_model(Crop, Env, is_rate_degradation=False, c_degr=400, ts=3600
 
     #ULM_degratation = exp(- (PPFD - last_u)**2/400**2)
     epsilon_biomass = Crop.c_epsilon * (CO2_air - Gamma) / (CO2_air + 2 * Gamma)
-    if is_rate_degradation:
-        f_phot_max = (epsilon_biomass * PAR_flux * g_CO2 * Crop.c_w * (CO2_air - Gamma)) / (epsilon_biomass * PAR_flux + g_CO2 * Crop.c_w * (CO2_air - Gamma))*ca.exp(-((u_light-u_prev)/c_degr)**2)
-    else:
+    if saturation_curve_type == 'rectangular':
         f_phot_max = (epsilon_biomass * PAR_flux * g_CO2 * Crop.c_w * (CO2_air - Gamma)) / (epsilon_biomass * PAR_flux + g_CO2 * Crop.c_w * (CO2_air - Gamma))
-
-    f_phot = (1 - np.exp(-Crop.c_K * LAI)) * f_phot_max #* ULM_degratation
+    elif saturation_curve_type == 'exponential':
+        A_sat = g_CO2 * Crop.c_w * (CO2_air - Gamma)
+        k_slope =  0.87* epsilon_biomass / A_sat
+        f_phot_max = A_sat * (1 - np.exp(-k_slope * PAR_flux))
+    
+    if is_rate_degradation:
+        f_phot_max *= ca.exp(-((u_light-u_prev)/c_degr)**2)
+    
+    #f_phot_max = 0.000006*PAR_flux
+    f_phot = (1 - np.exp(-Crop.c_K * LAI)) * f_phot_max 
     f_resp = (Crop.c_resp_sht * (1 - Crop.c_tau) * x_s + Crop.c_resp_rt * Crop.c_tau * x_s) * Crop.c_q10_resp ** ((T_air - 25) / 10)
     dw_to_fw = (1 - Crop.c_tau) / (Crop.dry_weight_fraction * Crop.plant_density)
     r_gr = Crop.c_gr_max * x_ns / (Crop.c_gamma * x_s + x_ns + 0.001) * Crop.c_q10_gr ** ((T_air - 20) / 10)
@@ -397,31 +416,126 @@ def get_explicit_model(Crop, Env, is_rate_degradation=False, c_degr=400, ts=3600
                     (dX_ns + dX_s) * dw_to_fw ,           # Fresh weight of the shoot of one plant
                     u_light/(ts * photoperiod_length)#PPFD/(Ts*N_horizon),                 # Average PPFD per day
                     )
-    f_day = ca.Function('f', [x, u_control], [f_expl_day], ['x', 'u_control'], ['ode'])
+    f = ca.Function('f', [x, u_control], [f_expl_day], ['x', 'u_control'], ['ode'])
     intg_options = {
         'tf' : ts,
         'simplify' : True
         
     }
 
-    dae_day = {
+    dae = {
         'x': x,
         'p': u_control,
-        'ode': f_day(x, u_control)
+        'ode': f(x, u_control)
     }
 
-    intg_day = ca.integrator('intg', 'rk', dae_day, intg_options)
+    intg = ca.integrator('intg', 'rk', dae, intg_options)
 
-    res_day = intg_day(x0=x, p= u_control)
+    res = intg(x0=x, p= u_control)
 
-    x_next_day = res_day['xf']
+    x_next_day = res['xf']
 
     # Simplifying API to (x,u) -> (x_next)
     # F simulates the function for one time step
-    F_day = ca.Function('F', [x,u_control], [x_next_day], ['x', 'u_control'], ['x_next'])
+    F = ca.Function('F', [x,u_control], [x_next_day], ['x', 'u_control'], ['x_next'])
 
-    return F_day, nx, nu
-def mpc_setup_dynamic(F_day, nx, nu, x0, N_horizon, l_end_mass, u_end_mass, min_DLI, max_DLI, u_min, u_max, data_dict, solver='ipopt'):
+    return F, nx, nu
+
+def update_opti(opti, F,x,u,p,energy,current_time, end_time, N_horizon, l_end_mass, u_end_mass, min_DLI, max_DLI, u_min, u_max, current_state, current_energy):
+    obj = ca.dot(u[0,:], energy)
+    
+     # Parameters for penalties
+    penalty_weight = 1e6  # Adjust this weight to increase/decrease the penalty
+    print(end_time)
+    print('--'*20)
+    # Penalty for being below lower bound
+    penalty_below = ca.fmax(0, l_end_mass - x[2, end_time])
+    # Penalty for exceeding upper bound
+    penalty_above = ca.fmax(0, x[2, end_time] - u_end_mass)
+    obj += penalty_weight * (penalty_below**2 + penalty_above**2)
+
+
+    for k in range(end_time+1):
+        if (current_time + k) % 24 == 0 and  k > 0:
+            penalty_below_DLI = ca.fmax(0, min_DLI - x[3,k] + x[3,k-24])
+            penalty_above_DLI = ca.fmax(0,  x[3,k] - x[3,k-24] - max_DLI)
+            obj += penalty_weight* (penalty_below_DLI**2 + penalty_above_DLI**2)
+
+
+    opti.minimize(obj)
+    print(obj)
+    opti.set_value(p, current_state)
+    opti.set_value(energy, current_energy)
+    opti.subject_to(x[:,0] == p)
+    
+    return opti
+    """
+    opti.subject_to()
+    for k in range(N_horizon):
+        opti.subject_to(x[:,k+1] == F(x[:,k], u[:,k]))
+        opti.subject_to([u[0,k] <= u_max, u[0,k] >= u_min])
+
+    # Setting u_prev
+    opti.subject_to(u[1,0] == 0)
+    for k in range(1, N_horizon):
+        opti.subject_to(u[1, k] == u[0, k-1])
+    opti.set_value(p, current_state)
+    opti.set_value(energy, current_energy)
+    opti.subject_to(x[:,0] == p)
+
+
+    opti.solver('ipopt')
+"""
+def mpc_setup_dynamic(F, nx, nu, x0, N_horizon, l_end_mass, u_end_mass, min_DLI, max_DLI, u_min, u_max, data_dict, solver='ipopt'):
+    # OPTIMAL CONTROL PROBLEM
+    opti = ca.Opti()
+
+    x = opti.variable(nx, N_horizon+1)
+    u = opti.variable(nu, N_horizon)
+
+    p = opti.parameter(nx, 1)
+    energy = opti.parameter(1, N_horizon)
+    # setting the objective
+    obj = ca.dot(u[0,:], energy)
+    
+    # Parameters for penalties
+    penalty_weight = 1e6  # Adjust this weight to increase/decrease the penalty
+
+    # Penalty for being below lower bound
+    penalty_below = ca.fmax(0, l_end_mass - x[2, -1])
+    # Penalty for exceeding upper bound
+    penalty_above = ca.fmax(0, x[2, -1] - u_end_mass)
+    obj += penalty_weight * (penalty_below**2 + penalty_above**2)
+
+
+    for k in range(N_horizon+1):
+        if (k) % 24 == 0 and k > 0:
+            penalty_below_DLI = ca.fmax(0, min_DLI - x[3,k] + x[3,k-24])
+            penalty_above_DLI = ca.fmax(0,  x[3,k] - x[3,k-24] - max_DLI)
+            obj += penalty_weight* (penalty_below_DLI**2 + penalty_above_DLI**2)
+            
+            
+    opti.minimize(obj)
+
+
+    for k in range(N_horizon):
+        opti.subject_to(x[:,k+1] == F(x[:,k], u[:,k]))
+        opti.subject_to([u[0,k] <= u_max, u[0,k] >= u_min])
+
+    # Setting u_prev
+    #opti.subject_to(u[1,0] == 0)
+    for k in range(1, N_horizon):
+        opti.subject_to(u[1, k] == u[0, k-1])
+
+    opti.subject_to(x[:,0] == p)
+
+
+    opti.solver('ipopt')
+
+    return opti, obj, x, u,p,  energy
+
+
+def mpc_setup_constant(F, nx, nu, x0, N_horizon, l_end_mass, u_end_mass, min_DLI, max_DLI, u_min, u_max, data_dict, solver='ipopt'):
     # OPTIMAL CONTROL PROBLEM
     opti = ca.Opti()
 
@@ -451,15 +565,14 @@ def mpc_setup_dynamic(F_day, nx, nu, x0, N_horizon, l_end_mass, u_end_mass, min_
             
             
     opti.minimize(obj)
-
-
     for k in range(N_horizon):
-        opti.subject_to(x[:,k+1] == F_day(x[:,k], u[:,k]))
+        opti.subject_to(x[:,k+1] == F(x[:,k], u[:,k]))
         opti.subject_to([u[0,k] <= u_max, u[0,k] >= 0])
 
     # Setting u_prev
     opti.subject_to(u[1,0] == 0)
     for k in range(1, N_horizon):
+        opti.subject_to(u[0,k] == u[0,k-1])
         opti.subject_to(u[1, k] == u[0, k-1])
 
     opti.subject_to(x[:,0] == p)
@@ -468,25 +581,35 @@ def mpc_setup_dynamic(F_day, nx, nu, x0, N_horizon, l_end_mass, u_end_mass, min_
     opti.solver('ipopt')
 
     return opti, obj, x, u,p,  energy
+
+
+
 def get_min_max_DLI_points(TLI, min_DLI, max_DLI):
 
     last = 0
 
     min_points = []
     max_points = []
-    for k in range(TLI.shape[1]):
+    for k in range(TLI.shape[0]):
         if (k) % 24 == 0 and k > 0:
             min_points.append((k, last + min_DLI))
             max_points.append((k, last + max_DLI))
             last = TLI[k]
     return min_points, max_points
-def print_cost_and_energy_consumption(x, u, energy):
+
+
+
+def print_cost_and_energy_consumption(x, u, energy, total_energy, model=''):
+    print('-'*20)
+    print('Model type: ', model, ' End biomass: ', x[2,-1])
     print('Total cost: ')
-    print(u[0,:].shape)
-    print(energy.shape)
     print(ca.dot(u[0,:].T, energy))
     print('Energy usage: ')
-    print(x[3, -1])
+    print(total_energy)
+    print('-'*20)
+
+
+
 def get_params(opt_config):
     # Integrator settings
     N_horizon = opt_config['N_horizon']
@@ -506,3 +629,43 @@ def get_params(opt_config):
     is_rate_degradation = opt_config['is_rate_degradation']
     c_degr = opt_config['c_degr']
     return N_horizon, ts, solver, photoperiod_length, u_max, u_min, min_DLI, max_DLI, l_end_mass, u_end_mass, is_rate_degradation, c_degr
+
+
+def solve_mpc(opti, u_symbol, x_symbol, energy_values, min_DLI, max_DLI):
+    sol = opti.solve()
+    u_opt = sol.value(u_symbol)
+    x_opt = sol.value(x_symbol)
+    tot_cost_dynamic = ca.dot(u_opt[0,:].T, energy_values)
+    tot_energy_dynamic = x_opt[3, -1].copy()
+    # Get the coordinates for plotting the DLI boundaries
+    min_points, max_points = get_min_max_DLI_points(TLI=x_opt[3,:], min_DLI=min_DLI, max_DLI=max_DLI)
+    for l in range(0, x_opt.shape[1], 24):
+        x_opt[3,l+1:] -= x_opt[3,l]
+    return sol, u_opt, x_opt, tot_cost_dynamic, tot_energy_dynamic, min_points, max_points
+
+def plot_photosynthesis(Crop, Env, fun_type='rectangular', block=True):
+    def f_phot_max_values(PAR_flux_values):
+        values = [Crop.return_photosynthesis(Env.CO2, Env.T_air, aerodynamical_resistance_eq(Env.air_vel,4, Crop.leaf_diameter), stomatal_resistance_eq(par), par, fun_type=fun_type) for par in PAR_flux_values]
+        return values
+    PAR_flux_values = np.linspace(0, 4000, 400)  # From 0 to 2000 umol/m^2/s with 400 points
+
+    print('average from 200 + 200:')
+    print(np.average(f_phot_max_values(np.array([200,200]))))
+    baseline = np.average(f_phot_max_values(np.array([200,200])))
+    print('average from 150 + 250:')
+    print(np.average(f_phot_max_values(np.array([150,250])))/baseline)
+    print('average from 100 + 300:')
+    print(np.average(f_phot_max_values(np.array([100,300])))/baseline)
+    print('average from 0 + 400:')
+    print(np.average(f_phot_max_values(np.array([0,400])))/baseline)
+
+
+    # Plotting the results
+    plt.figure(figsize=(10, 6))
+    plt.plot(PAR_flux_values, f_phot_max_values(PAR_flux_values), label='f_phot_max vs PAR_flux')
+    plt.title(f'Photosynthetic Efficiency as a Function of PAR Flux {fun_type}')
+    plt.xlabel('PAR Flux (umol/m^2/s)')
+    plt.ylabel('Photosynthetic Efficiency (f_phot_max)')
+    plt.grid(True)
+    plt.legend()
+    plt.show(block=block)

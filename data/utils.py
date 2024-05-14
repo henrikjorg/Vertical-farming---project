@@ -1,13 +1,13 @@
 import pandas as pd
 import numpy as np
 
-def fetch_electricity_prices(file_name, length, start_datetime='2016-01-01 Kl. 01-02', column='NO1'):
+def fetch_electricity_prices(file_name, length, start_datetime='2022-02-01 Kl. 01-02', column='NO1'):
     # length_sim = None imply that the MPC is set to open loop. If length sim is not None, then the function returns an array corresponding to the simulation
     data = pd.read_csv(file_name, sep=';', index_col='Dato/klokkeslett')
 
     # Finn starttime in the dataset
     if start_datetime not in data.index:
-        raise ValueError("Start-date does not exist in the dataset (2016-01-01 01-02 is the earliest and 2014-04-15 23-00 is the latest).")
+        raise ValueError("Start-date does not exist in the dataset (2016-01-01 01-02 is the earliest and 2024-04-15 23-00 is the latest).")
 
     # Find indeks for startdate
     start_index = data.index.get_loc(start_datetime)

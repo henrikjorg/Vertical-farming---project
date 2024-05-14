@@ -79,17 +79,30 @@ class CropModel:
         else:
             for attr, value in vars(self).items():
                 print(f"{attr}: {value}")
+    def return_photosynthesis(self, CO2_air, T_air, g_bnd, g_stm, PAR_flux, fun_type='rectangular'):
+        CO2_ppm = CO2_air
+        g_car = self.c_car_1 * T_air**2 + self.c_car_2 * T_air + self.c_car_3
+        g_CO2 = 1 / (1 / g_bnd + 1 / g_stm + 1 / g_car)
+        Gamma = self.c_Gamma * self.c_q10_Gamma ** ((T_air - 20) / 10)
+        epsilon_biomass = self.c_epsilon * (CO2_ppm - Gamma) / (CO2_ppm + 2 * Gamma)
+        if fun_type=='exponential':
+            A_sat = g_CO2 * self.c_w * (CO2_ppm - Gamma)
+            k_slope =epsilon_biomass / A_sat
+            f_phot_max = A_sat * (1 - np.exp(-k_slope * PAR_flux))
+        elif fun_type=='rectangular':
+            f_phot_max = (epsilon_biomass * PAR_flux * g_CO2 * self.c_w * (CO2_ppm - Gamma)) / (epsilon_biomass * PAR_flux + g_CO2 * self.c_w * (CO2_ppm - Gamma))
+        return f_phot_max
     def biomass_ode(self, X_ns: float, X_s: float, T_air: float, CO2_air: float, PAR_flux: float, PPFD: float, g_bnd: float, g_stm: float):
         CO2_ppm = CO2_air
         g_car = self.c_car_1 * T_air**2 + self.c_car_2 * T_air + self.c_car_3
         g_CO2 = 1 / (1 / g_bnd + 1 / g_stm + 1 / g_car)
         Gamma = self.c_Gamma * self.c_q10_Gamma ** ((T_air - 20) / 10)
         epsilon_biomass = self.c_epsilon * (CO2_ppm - Gamma) / (CO2_ppm + 2 * Gamma)
+        
         f_phot_max = (epsilon_biomass * PAR_flux * g_CO2 * self.c_w * (CO2_ppm - Gamma)) / (epsilon_biomass * PAR_flux + g_CO2 * self.c_w * (CO2_ppm - Gamma))
         f_phot = (1 - np.exp(-self.c_K * self.LAI)) * f_phot_max
         self.f_phot = f_phot
         self.p_phot_max = f_phot_max
-        self.f_phot_converted = f_phot / 1.8015e-5
         f_resp = (self.c_resp_sht * (1 - self.c_tau) * X_s + self.c_resp_rt * self.c_tau * X_s) * self.c_q10_resp ** ((T_air - 25) / 10)
         
         self.f_resp = f_resp
