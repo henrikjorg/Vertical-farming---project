@@ -7,18 +7,18 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from render.plot import *
 
-df = pd.read_csv('../render/csv/140524-1349_simulation.csv')
+df = pd.read_csv('../render/csv/150524-1601_simulation.csv')
 
 date_strings = df['Date'].to_numpy()
 dates = pd.to_datetime(date_strings)
 
-solutions = df[['T_in', 'Chi_in', 'CO2_in', 'T_env', 'T_sup', 'X_ns', 'X_s']].to_numpy().T
+solutions = df[['T_in', 'Chi_in', 'CO2_in', 'T_env', 'T_sup', 'Chi_sup', 'X_ns', 'X_s']].to_numpy().T
 
 climate_attrs = df[['T_hvac', 'Chi_hvac', 'Chi_out', 'CO2_out', 'T_crop']].to_numpy().T
 
 crop_attrs = df[['LAI']].to_numpy().T
 
-actions = df[['u_rot', 'u_fan', 'u_cool', 'u_heat', 'u_humid', 'u_c_inj', 'u_light']].to_numpy().T
+actions = df[['u_rot', 'u_fan', 'u_cool', 'u_heat', 'u_humid', 'u_c_inj', 'PPFD']].to_numpy().T
 
 all_data = df[['T_out', 'RH_out', 'Electricity price']].to_numpy().T
 

@@ -20,18 +20,18 @@ class RenderFile:
             2: "u_cool",
             3: "u_heat",
             4: "u_humid",
-            5: "u_c_inj"
+            5: "u_c_inj",
+            6: "PPFD"
         }
 
         self.y_labels = ["T_in", "Chi_in", "CO2_in", "T_env", "T_sup", "Chi_sup", "X_ns", "X_s"]
 
-        self.action_labels = ["u_rot", "u_fan", "u_cool", "u_heat", "u_humid", "u_c_inj"]
+        self.action_labels = ["u_rot", "u_fan", "u_cool", "u_heat", "u_humid", "u_c_inj", "PPFD"]
 
         self.data_info = {
             0: "T_out",
             1: "RH_out",
-            2: "Electricity price",
-            3: "u_light"
+            2: "Electricity price"
         }
 
         self.csv_file = None

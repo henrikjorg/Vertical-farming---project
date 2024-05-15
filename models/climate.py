@@ -108,11 +108,11 @@ class ClimateModel:
         return (1/self.V_hvac)*(u_sup*(Chi_hvac - self.Chi_sup))
     
     def CO2_ODE(self, f_phot, u_sup, Phi_c_inj):
-        Phi_c_ass = f_phot*self.A_crop
+        Phi_c_ass = - f_phot*self.A_crop
 
         Phi_c_hvac = u_sup*(self.rho_c/1000)*(self.CO2_out - self.CO2_in)
 
-        return (1/(self.V_in*self.rho_c))*(Phi_c_inj - Phi_c_ass + Phi_c_hvac)
+        return (1/(self.V_in*self.rho_c))*(Phi_c_inj + Phi_c_ass + Phi_c_hvac)
 
     def combined_ODE(self, state, control_inputs, data, hvac_input):
         T_in, Chi_in, CO2_in, T_env, T_sup, Chi_sup, X_ns, X_s = state

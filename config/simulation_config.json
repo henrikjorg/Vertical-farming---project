@@ -3,7 +3,7 @@
     "RH_desired": 80,
     "CO2_desired": 1200,
 
-    "cycle_duration_days": 2,
+    "cycle_duration_days": 5,
 
     "A_env": 48,
     "A_crop": 9,
@@ -16,7 +16,7 @@
     "heating_capacity": 500,
     "cooling_capacity": 500,
     "u_fan_max": 0.192,
-    "u_humid_max": 0.1,
-    "u_c_inj_max": 0.1,
+    "u_humid_max": 0.00001,
+    "u_c_inj_max": 0.2,
     "PPFD_max": 400
 }

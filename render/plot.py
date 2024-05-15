@@ -35,7 +35,8 @@ def plot_climate_figure(dates, y, climate_attrs, all_data):
     humid_ax.set_ylabel('Humidity [g/m³]')
     humid_ax.plot(dates, y[1, :], linewidth=2)[0]
     humid_ax.plot(dates, climate_attrs[2, :], linestyle='-', linewidth=1)[0]
-    humid_ax.plot(dates, climate_attrs[1, :], linewidth=1)[0]
+    humid_ax.plot(dates, y[5, :], linewidth=2)[0]
+    # humid_ax.plot(dates, climate_attrs[1, :], linewidth=1)[0]
     humid_ax.axhline(y=y[1, 0], color='grey', linestyle='--', linewidth=1.5, alpha=0.5)
     humid_ax.legend(["Chi_in", "Chi_out", "Chi_sup", "Chi_des"])
 
@@ -63,11 +64,11 @@ def plot_crop_figure(dates, y, crop_attrs):
 
     X_ns_ax = crop_axes[0]
     X_ns_ax.set_ylabel('X_ns [g/m²]')
-    X_ns_ax.plot(dates, y[3, :], linewidth=2)
+    X_ns_ax.plot(dates, y[6, :], linewidth=2)
 
     X_s_ax = crop_axes[1]
     X_s_ax.set_ylabel('X_s [g/m²]')
-    X_s_ax.plot(dates, y[4, :], linewidth=2)
+    X_s_ax.plot(dates, y[7, :], linewidth=2)
 
     LAI_ax = crop_axes[2]
     LAI_ax.set_ylabel('LAI [m²/m²]')
