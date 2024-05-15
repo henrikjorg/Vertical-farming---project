@@ -9,18 +9,18 @@ This repository simulates a controlled vertical farm environment.
 First make sure you are able to run `python3` (Mac/Linux) or `python` (Windows) from the terminal. If you are not then you might need to add it to the PATH.
 
 ## Install the required packages
-```
+```bash
 pip install -r requirements.txt
 ```
 
 ## Simulate example scenarios with the Gymnasium environment
-    ```
-    cd examples
-    python example_scenarios.py
-    ```
+```bash
+cd examples
+python example_scenarios.py
+```
 
 ## Run closed-loop MPC optimization for artificial lighting
-    ```
-    cd mpc_optimization
-    python casadi_mpc_closed_loop.py
-    ```
+```bash
+cd mpc_optimization
+python casadi_mpc_closed_loop.py
+```
