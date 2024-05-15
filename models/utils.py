@@ -229,18 +229,18 @@ def estimate_Chi_surface(air_temperature, surface_temperature):
     """
 
     # Calculate the saturation vapor density at the air temperature
-    rho_sat_air = estimate_Chi_sat(air_temperature)
+    rho_saT_in = estimate_Chi_sat(air_temperature)
     
     # Calculate the slope of the saturation curve at the air temperature
-    d_rho_dT_air = estimate_dChi_dT(air_temperature)
+    d_rho_dT_in = estimate_dChi_dT(air_temperature)
     
     # Calculate the temperature difference between the surface and the air
     delta_T = surface_temperature - air_temperature
     
     # Apply the first term of Taylor's expansion to estimate the change in vapor concentration
-    delta_rho = d_rho_dT_air * delta_T
+    delta_rho = d_rho_dT_in * delta_T
     
     # Estimate the vapor concentration based on air temperature
-    vapor_concentration_air_based = rho_sat_air + delta_rho
+    vapor_concentration_air_based = rho_saT_in + delta_rho
     
     return vapor_concentration_air_based
