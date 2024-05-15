@@ -15,7 +15,9 @@ class ClimateModel:
         self.c_air = get_attribute(config, 'c_air')       
         self.rho_c = get_attribute(config, 'rho_c') 
         self.c_p = get_attribute(config, 'c_p')
-        self.c_env = get_attribute(config, 'c_env')
+        self.C_env = get_attribute(config, 'C_env')
+        self.C_hvac = get_attribute(config, 'C_hvac')
+        self.c_duct = get_attribute(config, 'c_duct')
 
         self.alpha_env = get_attribute(config, 'alpha_env')
         self.air_vel = get_attribute(config, 'air_vel')
@@ -30,8 +32,6 @@ class ClimateModel:
         self.V_hvac = get_attribute(config, 'V_hvac')
 
         self.C_in = self.rho_air*self.c_air*self.V_in    
-        self.C_hvac = self.rho_air*self.c_air*self.V_hvac
-        self.C_env = self.rho_air*self.c_env*self.V_in
 
         self.eta_light = get_attribute(config, 'eta_light')
         self.c_r = get_attribute(config, 'c_r')
@@ -95,7 +95,7 @@ class ClimateModel:
         return (1/self.C_env)*(self.alpha_env*self.A_env*(self.T_in - self.T_env) + self.alpha_env*self.A_env*(T_out - self.T_env))
     
     def sup_temperature_ODE(self, u_sup, T_hvac):
-        return (1/self.C_hvac)*u_sup*self.rho_air*self.c_air*(T_hvac - self.T_sup)
+        return (1/self.C_hvac)*u_sup*self.rho_air*self.c_duct*(T_hvac - self.T_sup)
 
     def humidity_ODE(self, Chi_sup, Chi_crop, u_sup, LAI, r_stm, r_bnd):
         Phi_trans = LAI * self.A_crop * (Chi_crop - self.Chi_in) / (r_stm + r_bnd)

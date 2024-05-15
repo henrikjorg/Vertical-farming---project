@@ -25,7 +25,7 @@ base_pattern = np.concatenate([np.full(16, 1), np.full(8, 0)])
 PPFDs = np.tile(base_pattern, num_days)
 PPFDs = np.append(PPFDs, 0)
 
-eval_env = VerticalFarmEnv(start_datetime, config, data, end_datetime=end_datetime, render_mode='print')
+eval_env = VerticalFarmEnv(start_datetime, config, data, end_datetime=end_datetime, render_mode='file')
 
 obs, _ = eval_env.reset()
 i = 0
@@ -82,7 +82,7 @@ while True:
 
     PPFD = PPFDs[i]
 
-    action = np.array([1, 1, 1, 1, 1, 1, PPFD])
+    action = np.array([1, 1, 0, 1, 1, 1, PPFD])
 
     obs, rewards, terminated, truncated, info = eval_env.step(action)
     eval_env.render()
