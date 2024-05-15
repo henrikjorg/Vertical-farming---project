@@ -82,7 +82,7 @@ while True:
 
     PPFD = PPFDs[i]
 
-    action = np.array([1, 1, 0, 0, 0, 0, PPFD])
+    action = np.array([1, 1, 1, 1, 1, 1, PPFD])
 
     obs, rewards, terminated, truncated, info = eval_env.step(action)
     eval_env.render()

@@ -13,10 +13,10 @@
     "eta_light": 0.7,
     "eta_rot_T": 0.8,
     "eta_rot_Chi": 0.7,
-    "heating_capacity": 1000,
-    "cooling_capacity": 1000,
+    "heating_capacity": 500,
+    "cooling_capacity": 500,
     "u_fan_max": 0.192,
     "u_humid_max": 0.1,
-    "u_c_inj_max": 0.001,
+    "u_c_inj_max": 0.1,
     "PPFD_max": 400
 }

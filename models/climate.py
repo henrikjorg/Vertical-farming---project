@@ -13,7 +13,7 @@ class ClimateModel:
         self.p = get_attribute(config, 'p')     
         self.rho_air = get_attribute(config, 'rho_air')  
         self.c_air = get_attribute(config, 'c_air')       
-        self.c_omega = get_attribute(config, 'c_omega') 
+        self.rho_c = get_attribute(config, 'rho_c') 
         self.c_p = get_attribute(config, 'c_p')
         self.c_env = get_attribute(config, 'c_env')
 
@@ -107,12 +107,12 @@ class ClimateModel:
     def sup_humidity_ODE(self, u_sup, Chi_hvac):
         return (1/self.V_hvac)*(u_sup*(Chi_hvac - self.Chi_sup))
     
-    def CO2_ODE(self, f_phot, LAI, u_sup, Phi_c_inj):
+    def CO2_ODE(self, f_phot, u_sup, Phi_c_inj):
         Phi_c_ass = f_phot*self.A_crop
 
-        Phi_c_hvac = u_sup*self.c_omega*(self.CO2_out - self.CO2_in)
+        Phi_c_hvac = u_sup*(self.rho_c/1000)*(self.CO2_out - self.CO2_in)
 
-        return (1/(self.V_in*self.c_omega))*(Phi_c_inj - Phi_c_ass + Phi_c_hvac)
+        return (1/(self.V_in*self.rho_c))*(Phi_c_inj - Phi_c_ass + Phi_c_hvac)
 
     def combined_ODE(self, state, control_inputs, data, hvac_input):
         T_in, Chi_in, CO2_in, T_env, T_sup, Chi_sup, X_ns, X_s = state
@@ -138,7 +138,7 @@ class ClimateModel:
 
         dT_in_dt = self.temperature_ODE(U_par, Chi_crop, T_sup, u_sup, CAC, LAI, r_stm, r_bnd)
         dChi_in_dt = self.humidity_ODE(Chi_sup, Chi_crop, u_sup, LAI, r_stm, r_bnd)
-        dCO2_in_dt = self.CO2_ODE(f_phot, LAI, u_sup, u_c_inj)
+        dCO2_in_dt = self.CO2_ODE(f_phot, u_sup, u_c_inj)
         dT_env_dt = self.env_temperature_ODE(T_out)
         dT_sup_dt = self.sup_temperature_ODE(u_sup, T_hvac)
         dChi_sup_dt = self.sup_humidity_ODE(u_sup, Chi_hvac)

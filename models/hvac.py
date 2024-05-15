@@ -15,9 +15,6 @@ class HVACModel:
         self.eta_rot_T = get_attribute(config, 'eta_rot_T')
         self.eta_rot_Chi = get_attribute(config, 'eta_rot_Chi')
 
-        # Time step
-        self.t_s = 60*60 # 1 hour
-
     def rotary_heat_exchanger(self, T_in, T_out, Chi_in, Chi_out, u_rot):
         T_rot = u_rot*self.eta_rot_T*(T_in - T_out) + T_out
         Chi_rot = u_rot*self.eta_rot_Chi*(Chi_in - Chi_out) + Chi_out
@@ -30,26 +27,26 @@ class HVACModel:
         return T_fan
     
     def cooling_and_dehumidification_coil(self, h_fan, W_fan, u_cool, u_sup):
-        h_cool = h_fan - u_cool/(u_sup*self.rho_air*self.t_s)
+        h_cool = h_fan - u_cool/(u_sup*self.rho_air)
 
         try: # Sensible cooling
-            RH_out = HAPropsSI('R','H',h_cool,'P',self.p,'W',W_fan)
+            RH_out = HAPropsSI('R','H',h_cool/1000,'P',self.p,'W',W_fan/1000) # h_cool must be in kJ/kg for CoolProp
         except ValueError: # Dew point reached, sensible and latent cooling (condensation)
             RH_out = 1
         
-        T_cool = HAPropsSI('T','H',h_cool,'P',self.p,'R',RH_out)
-        W_cool = HAPropsSI('W','H',h_cool,'P',self.p,'R',RH_out)
-        Chi_cool = W_cool*self.rho_air
+        T_cool = HAPropsSI('T','H',h_cool/1000,'P',self.p,'R',RH_out)
+        W_cool = HAPropsSI('W','H',h_cool/1000,'P',self.p,'R',RH_out)
+        Chi_cool = (W_cool*1000)*self.rho_air
 
         return T_cool, Chi_cool
     
     def heating_coil(self, T_cool, u_heat, u_sup):
-        T_heat = T_cool + u_heat/(u_sup*self.rho_air*self.c_air*self.t_s)
+        T_heat = T_cool + u_heat/(u_sup*self.rho_air*self.c_air)
 
         return T_heat
     
-    def humidifier(self, Chi_cool, u_humid, u_sup):
-        Chi_humid = Chi_cool + u_humid/(u_sup*self.rho_air*self.t_s*self.Lambda)
+    def humidifier(self, Chi_cool, u_humid):
+        Chi_humid = Chi_cool + u_humid
 
         return Chi_humid
     
@@ -73,17 +70,20 @@ class HVACModel:
 
         T_fan = self.supply_fan(T_rot)
 
-        W_fan = Chi_rot/self.rho_air
+        W_fan = Chi_rot/self.rho_air # grams of water per kg of dry air
         try:
-            RH_fan = HAPropsSI('R','T',T_fan,'P',self.p,'W',W_fan)
+            RH_fan = HAPropsSI('R','T',T_fan,'P',self.p,'W',W_fan/1000) # W_fan must be in kg/kg for CoolProp
         except ValueError:
             RH_fan = 1
         h_fan = HAPropsSI('H','T',T_fan,'P',self.p,'R',RH_fan)
+
+        # Convert kJ/kg to J/kg
+        h_fan = h_fan*1000 
 
         T_cool, Chi_cool = self.cooling_and_dehumidification_coil(h_fan, W_fan, u_cool, u_sup)
 
         T_heat = self.heating_coil(T_cool, u_heat, u_sup)
 
-        Chi_humid = self.humidifier(Chi_cool, u_humid, u_sup)
+        Chi_humid = self.humidifier(Chi_cool, u_humid)
 
         return T_heat - 273.15, Chi_humid, Chi_out
