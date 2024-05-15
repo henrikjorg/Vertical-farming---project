@@ -2,8 +2,8 @@
 This repository simulates a controlled vertical farm environment.
 
 ## Features
-+ Simulation with a [https://github.com/Farama-Foundation/Gymnasium](Gymnasium) environment
-+ MPC optimization with the [https://github.com/casadi/casadi](Casadi) framework
++ Simulation with a [Gymnasium](https://github.com/Farama-Foundation/Gymnasium) environment
++ MPC optimization with the [Casadi](https://github.com/casadi/casadi) framework
 
 ## Requirements
 First make sure you are able to run `python3` (Mac/Linux) or `python` (Windows) from the terminal. If you are not then you might need to add it to the PATH. If you want to use a version of python not in the PATH you should specify `options.pythonPath`.
