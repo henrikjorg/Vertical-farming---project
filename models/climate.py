@@ -122,10 +122,9 @@ class ClimateModel:
         CAC = self.crop_model.CAC
         f_phot = self.crop_model.f_phot
 
-        u_rot, u_sup, u_cool, u_heat, u_humid, u_c_inj = control_inputs
-        T_out, RH_out, electricity_prices, light_input = data
-
-        PPFD = light_input
+        u_rot, u_sup, u_cool, u_heat, u_humid, u_c_inj, PPFD = control_inputs
+        T_out, RH_out, electricity_prices = data
+        
         U_par = PPFD * self.c_p
 
         T_hvac, Chi_hvac, Chi_out = hvac_input

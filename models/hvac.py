@@ -55,7 +55,7 @@ class HVACModel:
     
     def calculate_supply_air(self, state, control_inputs, data):    
         T_in, Chi_in, CO2_in, T_env, T_sup, Chi_sup, X_ns, X_s = state
-        u_rot, u_sup, u_cool, u_heat, u_humid, u_c_inj = control_inputs
+        u_rot, u_sup, u_cool, u_heat, u_humid, u_c_inj, PPFD = control_inputs
 
         T_out = float(data[0])
         RH_out = float(data[1])

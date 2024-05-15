@@ -36,9 +36,10 @@ def net_radiation_equation(PAR_flux, CAC, rho_r):
     return (1 - rho_r) * PAR_flux * CAC
 
 
-#def biomass_to_LAI(X_s):
-     # This is the LAI estimated in Van Henten, but it is replaced by Talbot's SLA_to_LAI function
-#     return (1-c_tau)*c_lar*X_s
+def biomass_to_LAI(X_s, c_lar, c_tau):
+    # LAI estimated in Van Henten
+    return (1-c_tau)*c_lar*X_s
+
 def LAI_to_CAC(LAI, k=0.5):
     """
     Converts Leaf Area Index (LAI) to Canopy Absorption Coefficient (CAC).
@@ -96,6 +97,7 @@ def c_epsilon_calibrated(PPFD, temperature, use_calibrated = False):
     # Interpolate (or effectively look up) for the adjusted PPFD and temperature
     c_epsilon = griddata(points, optimal_c_epsilon_parameters, (PPFD_temp, temperature_temp), method='linear')
     return c_epsilon
+
 def c_gr_max_calibrated(PPFD, temperature, use_calibrated = False):
     if not use_calibrated:
         return 5*10**(-6)
@@ -140,9 +142,6 @@ def SLA_to_LAI(SLA, c_tau, leaf_to_shoot_ratio, X_s, X_ns):
     """
     return SLA * (1 - c_tau) * leaf_to_shoot_ratio * (X_s + X_ns)
 
-
-###########
-
 def estimate_Chi_sat_in_hPa(T):
     """
     Calculate the saturation vapor pressure (e_s) over a flat surface of water
@@ -156,6 +155,7 @@ def estimate_Chi_sat_in_hPa(T):
     """
     e_s = 6.112 * np.exp((17.67 * T) / (T + 243.5))
     return e_s
+
 def clausius_clapeyron_equation(T, e_s):
     """
     Calculate the rate of change of saturation vapor pressure with temperature
@@ -172,6 +172,7 @@ def clausius_clapeyron_equation(T, e_s):
     R_v = 461.5  # Specific gas constant for water vapor (J/(kg·K))
     d_es_dT = (L * e_s) / (R_v * (T + 273.15)**2)
     return d_es_dT
+
 def estimate_Chi_sat(T):
     """
     Calculate the density of water vapor (rho) in g/m^3 at saturation (100% relative humidity)

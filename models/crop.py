@@ -55,7 +55,8 @@ class CropModel:
         self.structural_dry_weight_per_plant: float = self.dry_weight_per_plant * self.structural_to_nonstructural
         self.X_ns: float = self.dry_weight * (1 - self.structural_to_nonstructural)
         self.X_s: float = self.dry_weight * self.structural_to_nonstructural
-        self.LAI: float = SLA_to_LAI(SLA=self.SLA, c_tau=self.c_tau, leaf_to_shoot_ratio=self.leaf_to_shoot_ratio, X_s=self.X_s, X_ns=self.X_ns)
+        # self.LAI: float = SLA_to_LAI(SLA=self.SLA, c_tau=self.c_tau, leaf_to_shoot_ratio=self.leaf_to_shoot_ratio, X_s=self.X_s, X_ns=self.X_ns)
+        self.LAI: float = biomass_to_LAI(self.X_s, self.c_lar, self.c_tau)
         self.CAC: float = LAI_to_CAC(self.LAI)
         self.f_phot: float = 0
 
@@ -70,7 +71,8 @@ class CropModel:
         self.dry_weight_per_plant = self.dry_weight / self.plant_density
         self.structural_dry_weight_per_plant = self.X_s / self.plant_density
         self.set_fresh_weight_shoot()
-        self.LAI = SLA_to_LAI(SLA=self.SLA, c_tau=self.c_tau, leaf_to_shoot_ratio=self.leaf_to_shoot_ratio, X_s=self.X_s, X_ns=self.X_ns)
+        # self.LAI = SLA_to_LAI(SLA=self.SLA, c_tau=self.c_tau, leaf_to_shoot_ratio=self.leaf_to_shoot_ratio, X_s=self.X_s, X_ns=self.X_ns)
+        self.LAI: float = biomass_to_LAI(self.X_s, self.c_lar, self.c_tau)
         self.CAC = LAI_to_CAC(self.LAI)
 
     def print_attributes(self, *args):
@@ -96,6 +98,10 @@ class CropModel:
         return f_phot_max
     
     def biomass_ode(self, X_ns: float, X_s: float, T_in: float, CO2_in: float, U_par: float, PPFD: float, g_bnd: float, g_stm: float):
+        # FOR TESTING PURPOSES
+        T_in = 24
+        CO2_in = 1200
+
         CO2_ppm = CO2_in
         g_car = self.c_car_1 * T_in**2 + self.c_car_2 * T_in + self.c_car_3
         g_CO2 = 1 / (1 / g_bnd + 1 / g_stm + 1 / g_car)
@@ -122,7 +128,7 @@ class CropModel:
         T_in, Chi_in, CO2_in, T_env, T_sup, Chi_sup, X_ns, X_s = state
         self.update_values(X_ns, X_s)
 
-        PPFD = control_inputs[5] # TODO
+        PPFD = control_inputs[6]
         U_par = PPFD * self.c_p
         
         LAI = SLA_to_LAI(SLA=self.SLA, c_tau=self.c_tau, leaf_to_shoot_ratio=self.leaf_to_shoot_ratio, X_s=X_s, X_ns=X_ns)

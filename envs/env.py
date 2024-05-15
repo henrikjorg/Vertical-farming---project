@@ -41,14 +41,14 @@ class VerticalFarmEnv(gym.Env):
 
         # Initialize Gym environment observation space
         num_states = 6
-        num_data = 4
+        num_data = 3
         num_attrs = len(self.crop_attributes_to_render) + len(self.climate_attributes_to_render)
         num_obs = num_states + num_attrs + num_data
 
         self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(num_obs,), dtype=np.float64)
         
         # Initialize normalized Gym environment action space
-        num_control_inputs = 6
+        num_control_inputs = 7
         self.action_space = spaces.Box(low=0, high=1, shape=(num_control_inputs,), dtype=np.float32)
 
         self._initialize_simulation(self.cycle_duration_days)

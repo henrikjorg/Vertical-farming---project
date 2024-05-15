@@ -19,17 +19,24 @@ end_datetime = datetime.datetime.strptime(end_date, '%Y-%m-%d')
 
 data = load_data('../data', start_datetime, end_datetime)
 
-eval_env = VerticalFarmEnv(start_datetime, config, data, end_datetime=end_datetime, render_mode='live')
+# Generate dummy lighting PPFD control input
+num_days = (end_datetime - start_datetime).days
+base_pattern = np.concatenate([np.full(16, 1), np.full(8, 0)])
+PPFDs = np.tile(base_pattern, num_days)
+PPFDs = np.append(PPFDs, 0)
+
+eval_env = VerticalFarmEnv(start_datetime, config, data, end_datetime=end_datetime, render_mode='print')
 
 obs, _ = eval_env.reset()
+i = 0
 while True:
     T_in, Chi_in, CO2_in, T_env, T_sup, Chi_sup, X_ns, X_s = obs[:8]
     LAI, CAC, f_phot = obs[8:11]
     T_hvac, Chi_hvac, Chi_out, CO2_out, T_crop, T_desired, Chi_desired, CO2_desired = obs[11:19]
-    T_out, RH_out, electricity_price, U_par = obs[19:23]
+    T_out, RH_out, electricity_price = obs[19:22]
 
     # HYPOTHETICAL SCENARIOS
-    # action = [u_rot, u_fan, u_cool, u_heat, u_humid, u_c_inj] (Normalized values 0-1)
+    # action = [u_rot, u_fan, u_cool, u_heat, u_humid, u_c_inj, PPFD] (Normalized values 0-1)
 
     # TEST P CONTROLLER
     # T_error = T_desired - T_in
@@ -63,17 +70,19 @@ while True:
 
     # SCENARIO 2: Cooling if temperature is above 25 degrees
     # if T_in > T_desired + 1:
-    #     action = np.array([0, 0.1, 1, 0, 0, 0])
+    #     action = np.array([0, 0.1, 1, 0, 0, 0, 0])
     # else:
-    #     action = np.array([0, 0.1, 0, 0, 0, 0])
+    #     action = np.array([0, 0.1, 0, 0, 0, 0, 0])
 
     # SCENARIO 3: Balanced CO2 injection
     # if CO2_in < CO2_desired - 100:
-    #     action = np.array([0, 0.1, 0, 0, 0, 1])
+    #     action = np.array([0, 0.1, 0, 0, 0, 1, 0])
     # else:
-    #     action = np.array([0, 0.1, 0, 0, 0, 0])
+    #     action = np.array([0, 0.1, 0, 0, 0, 0, 0])
 
-    action = np.array([1, 1, 0, 0, 0, 0])
+    PPFD = PPFDs[i]
+
+    action = np.array([1, 1, 0, 0, 0, 0, PPFD])
 
     obs, rewards, terminated, truncated, info = eval_env.step(action)
     eval_env.render()
@@ -81,3 +90,5 @@ while True:
     if terminated:
         eval_env.close()
         break
+
+    i += 1

@@ -51,10 +51,11 @@ class RenderLive:
         self.temp_ax.set_ylabel('Temperature [°C]')
 
         self.T_in_line = self.temp_ax.plot(self.dates, self.empty_y, linewidth=2)[0]
-        self.T_out_line = self.temp_ax.plot(self.dates, self.empty_y, linestyle='-', linewidth=1)[0]
+        self.T_env_line = self.temp_ax.plot(self.dates, self.empty_y, linewidth=1)[0]
         self.T_sup_line = self.temp_ax.plot(self.dates, self.empty_y, linewidth=1)[0]
+        self.T_out_line = self.temp_ax.plot(self.dates, self.empty_y, linestyle='-', linewidth=1)[0]
         self.temp_ax.axhline(y=self.y[0, 0], color='grey', linestyle='--', linewidth=1.5, alpha=0.5)
-        self.temp_ax.legend(["T_in", "T_out", "T_hvac", "T_des"])
+        self.temp_ax.legend(["T_in", "T_env", "T_sup", "T_out", "T_des"])
 
         # Humidity subplot
         self.humid_ax = self.climate_axes[1]
@@ -123,11 +124,12 @@ class RenderLive:
     def _render_climate(self, x_lim, y, climate_attrs, all_data):
         # Update temperature lines
         self.T_in_line.set_ydata(y[0, :])
+        self.T_env_line.set_ydata(y[3, :])
+        self.T_sup_line.set_ydata(y[4, :])
         self.T_out_line.set_ydata(all_data[0, :])
-        self.T_sup_line.set_ydata(climate_attrs['T_hvac'])
 
         # Update temperature y-axis limits
-        combined_y = np.concatenate([y[0, :x_lim], all_data[0, :x_lim], climate_attrs['T_hvac'][:x_lim]])
+        combined_y = np.concatenate([y[0, :x_lim], y[3, :x_lim], y[4, :], all_data[0, :x_lim]])
         y_min, y_max = combined_y.min(), combined_y.max()
         y_range = y_max - y_min
         margin = 0.1 * y_range
