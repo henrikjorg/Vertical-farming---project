@@ -1,7 +1,25 @@
 import numpy as np
 from config import *
 from scipy.interpolate import griddata
-import json
+from CoolProp.HumidAirProp import HAPropsSI
+
+def calculate_air_density(p, T):
+    """Calculate air density based on temperature [Kelvin]."""
+    M = 0.0289652 # Molar mass of dry air
+    R = 8.31446261815324 # Gas constant
+
+    return p*M/(R*T)
+
+def calculate_absolute_humidity(p, T, RH):
+    """Calculate absolute humidity based on temperature [C] and relative humidity [%]."""
+    T = T + 273.15 # Convert temperature to Kelvin
+    RH = RH/100 # Convert relative humidity to fraction
+
+    W = HAPropsSI('W','T',T,'P',p,'R',RH) # Humidity ratio of outside air [kg water/kg dry air]
+    
+    rho = calculate_air_density(p, T) # Density of outside dry air [kg/m^3]
+    Chi = W*rho # Absolute humidity outside [kg/m^3]
+    return Chi
 
 def net_radiation_equation(PAR_flux, CAC, rho_r):
     """
@@ -18,9 +36,10 @@ def net_radiation_equation(PAR_flux, CAC, rho_r):
     return (1 - rho_r) * PAR_flux * CAC
 
 
-#def biomass_to_LAI(X_s):
-     # This is the LAI estimated in Van Henten, but it is replaced by Talbot's SLA_to_LAI function
-#     return (1-c_tau)*c_lar*X_s
+def biomass_to_LAI(X_s, c_lar, c_tau):
+    # LAI estimated in Van Henten
+    return (1-c_tau)*c_lar*X_s
+
 def LAI_to_CAC(LAI, k=0.5):
     """
     Converts Leaf Area Index (LAI) to Canopy Absorption Coefficient (CAC).
@@ -78,6 +97,7 @@ def c_epsilon_calibrated(PPFD, temperature, use_calibrated = False):
     # Interpolate (or effectively look up) for the adjusted PPFD and temperature
     c_epsilon = griddata(points, optimal_c_epsilon_parameters, (PPFD_temp, temperature_temp), method='linear')
     return c_epsilon
+
 def c_gr_max_calibrated(PPFD, temperature, use_calibrated = False):
     if not use_calibrated:
         return 5*10**(-6)
@@ -122,9 +142,6 @@ def SLA_to_LAI(SLA, c_tau, leaf_to_shoot_ratio, X_s, X_ns):
     """
     return SLA * (1 - c_tau) * leaf_to_shoot_ratio * (X_s + X_ns)
 
-
-###########
-
 def estimate_Chi_sat_in_hPa(T):
     """
     Calculate the saturation vapor pressure (e_s) over a flat surface of water
@@ -138,6 +155,7 @@ def estimate_Chi_sat_in_hPa(T):
     """
     e_s = 6.112 * np.exp((17.67 * T) / (T + 243.5))
     return e_s
+
 def clausius_clapeyron_equation(T, e_s):
     """
     Calculate the rate of change of saturation vapor pressure with temperature
@@ -154,6 +172,7 @@ def clausius_clapeyron_equation(T, e_s):
     R_v = 461.5  # Specific gas constant for water vapor (J/(kg·K))
     d_es_dT = (L * e_s) / (R_v * (T + 273.15)**2)
     return d_es_dT
+
 def estimate_Chi_sat(T):
     """
     Calculate the density of water vapor (rho) in g/m^3 at saturation (100% relative humidity)
@@ -210,27 +229,18 @@ def estimate_Chi_surface(air_temperature, surface_temperature):
     """
 
     # Calculate the saturation vapor density at the air temperature
-    rho_sat_air = estimate_Chi_sat(air_temperature)
+    rho_saT_in = estimate_Chi_sat(air_temperature)
     
     # Calculate the slope of the saturation curve at the air temperature
-    d_rho_dT_air = estimate_dChi_dT(air_temperature)
+    d_rho_dT_in = estimate_dChi_dT(air_temperature)
     
     # Calculate the temperature difference between the surface and the air
     delta_T = surface_temperature - air_temperature
     
     # Apply the first term of Taylor's expansion to estimate the change in vapor concentration
-    delta_rho = d_rho_dT_air * delta_T
+    delta_rho = d_rho_dT_in * delta_T
     
     # Estimate the vapor concentration based on air temperature
-    vapor_concentration_air_based = rho_sat_air + delta_rho
+    vapor_concentration_air_based = rho_saT_in + delta_rho
     
     return vapor_concentration_air_based
-
-def load_config(file_path: str) -> dict:
-    """Load configuration from a JSON file."""
-    if file_path == 'opt_config.json' or file_path == 'opt_config_casadi.json':
-        with open('mpc_optimization/' + file_path, 'r') as file:
-            return json.load(file)
-    else:
-        with open(file_path, 'r') as file:
-            return json.load(file)

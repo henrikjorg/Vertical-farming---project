@@ -4,22 +4,22 @@ sys.path.append('../VF-SIMULATION')
 import casadi as ca
 import numpy as np
 from mpc_optimization.opt_utils import *
-from utilities import *
-from crop import CropModel
-from environment import EnvironmentModel
+from models.utils import *
+from models.crop import CropModel
+from models.climate import ClimateModel
+from config.utils import load_config
 
 # Getting the crop and environment models
-crop_config = load_config('crop_model_config.json')
-env_config = load_config('env_model_config.json')
-opt_config = load_config('opt_config_casadi.json')
+config = load_config('config/')
+opt_config = load_opt_config('opt_config_casadi.json')
 
 N_horizon, ts, solver, photoperiod_length, u_max, u_min, min_DLI, max_DLI, l_end_mass, u_end_mass, is_rate_degradation, c_degr = get_params(opt_config)
 Tf = N_horizon * ts
 data_dict = generate_data_dict(photoperiod_length=photoperiod_length, darkperiod_length=0, Nsim=N_horizon, shrink=False, N_horizon=N_horizon)
 states_labels = ['X_s', 'X_ns', 'Fresh weight', 'DLI']
 labels_to_plot =['Fresh weight', 'DLI']
-Crop = CropModel(crop_config)
-Env = EnvironmentModel(env_config)
+Crop = CropModel(config)
+Env = ClimateModel(config)
 x0 = ca.vertcat(Crop.X_ns, Crop.X_s, Crop.fresh_weight_shoot_per_plant, 0)
 energy_values = data_dict['energy'][:N_horizon].copy()
 

@@ -7,7 +7,6 @@
     "structural_to_nonstructural": 0.75,
     "dry_weight_fraction": 0.05,
     "leaf_to_shoot_ratio": 0.92,
-    "rho_r": 0.06,
     "leaf_diameter": 0.11,
     "c_tau": 0.15,
     "c_q10_gr": 1.6,
@@ -26,5 +25,6 @@
     "c_car_1": -0.0000132,
     "c_car_2": 0.000594,
     "c_car_3": -0.00264,
-    "c_epsilon": 17e-6
+    "c_epsilon": 17e-6,
+    "c_p": 0.217
 }

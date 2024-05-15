@@ -1,159 +1,18 @@
-#
-# Copyright (c) The acados authors.
-#
-# This file is part of acados.
-#
-# The 2-Clause BSD License
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions are met:
-#
-# 1. Redistributions of source code must retain the above copyright notice,
-# this list of conditions and the following disclaimer.
-#
-# 2. Redistributions in binary form must reproduce the above copyright notice,
-# this list of conditions and the following disclaimer in the documentation
-# and/or other materials provided with the distribution.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
-# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-# POSSIBILITY OF SUCH DAMAGE.;
-#
 import sys
  
 # setting path
-sys.path.append('../VF-SIMULATION')
+sys.path.append('../')
 from data.utils import fetch_electricity_prices
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from acados_template import latexify_plot
 import casadi as ca
-from utilities import *
-
-def plot_crop(t, u_max, u_min, U, X_true, X_est=None, Y_measured=None, energy_price_array=None, photoperiod_array=None,eod_array=None, Z_true = None, Z_labels = None, min_DLI=None, max_DLI=None, latexify=False, plt_show=True,
-               plot_all=False, states_labels=[], first_plot=[], X_true_label=None):
-    if latexify:
-        latexify_plot()
-    if len(states_labels) == 0:
-        raise IndexError('No state labels provided')
-
-    WITH_ESTIMATION = X_est is not None and Y_measured is not None
-
-    days = t / (60*60)
-    if plot_all:
-        total_plots = states_labels
-    else:
-        total_plots = first_plot
-    subplot_rows = len(total_plots) + 2  # +2 for price and input plots
-
-    # First figure setup
-    fig1, axs1 = plt.subplots(subplot_rows, 1, figsize=(10, min(subplot_rows * 3, 9)))
-
-    # Second figure setup, check if Z_true is provided
-    if Z_labels is not None:
-        subplot_rows_z = len(Z_labels) + 2
-        fig2, axs2 = plt.subplots(subplot_rows_z, 1, figsize=(10, min(subplot_rows_z * 3, 9)))
-
-    # Function to plot energy price and input
-    def plot_price_input(axs, days, energy_price_array, U, u_max, u_min, photoperiod_array, label_suffix=''):
-        if label_suffix == ' with Z':
-            axs[0].step(days[:-1], energy_price_array, where='post', label='Energy Price' + label_suffix, color='r')
-        else:
-            axs[0].step(days, np.append([energy_price_array[0]], energy_price_array), where='post', label='Energy Price' + label_suffix, color='r')
-
-        axs[0].set_ylabel('$price$')
-        axs[0].set_xlabel('$t$')
-        axs[0].grid()
-        if U.shape[0] > 1:
-            if label_suffix==' with Z':
-                axs[1].step(days[:-1], U, where='post', label='Input' + label_suffix, color='r')
-            else:
-                axs[1].step(days[:-1], U, where='post', label='Input' + label_suffix, color='r')
-                
-        else:
-
-            axs[1].step(days, np.append(0, U), where='pre', label='Input' + label_suffix, color='r')
-               
-        axs[1].hlines([u_max, u_min], days[0], days[-2], linestyles='dashed', colors=['g', 'b'], alpha=0.7)
-        axs[1].set_ylabel('$u$')
-        axs[1].set_xlabel('$t$')
-        axs[1].grid()
-        if label_suffix == ' with Z':
-            r = len(days) -2
-        else:
-            r = len(days)-1
-        for i in range(r):
-            color = 'red' if photoperiod_array[i] > 0 else 'green'
-            start = days[i]
-            
-            end = days[i + 1]
-            axs[1].fill_betweenx([0, u_max], start, end, color=color, step='pre', alpha=0.08)
-
-    # Plot energy price and input for both figures
-    plot_price_input(axs1, days, energy_price_array, U, u_max, u_min, photoperiod_array)
-    if Z_labels is not None:
-        plot_price_input(axs2, days, energy_price_array, U, u_max, u_min, photoperiod_array, ' with Z')
-
-    # Plot states for the first figure
-    for j, label in enumerate(total_plots):
-        idx = states_labels.index(label)
-        axs1[j+2].plot(days, X_true[idx, :])
-        if label == '$DLI_u$' and min_DLI is not None:
-            axs1[j+2].hlines([min_DLI, max_DLI], days[0], days[-1], linestyles='dashed', colors=['orange', 'purple'], alpha=0.7)
-        if label == '$DLI_u$':
-            r = len(days)-1
-            for i in range(r):
-                color = 'red' if eod_array[i] == 0 else 'green'
-                start = days[i]
-                
-                end = days[i + 1]
-                axs1[j+2].fill_betweenx([0, max_DLI], start, end, color=color, step='pre', alpha=0.08)
-        if WITH_ESTIMATION:
-            axs1[j+2].plot(days_mhe, X_est[:, idx], '--', label='Estimated')
-            axs1[j+2].plot(days, Y_measured[:, idx], 'x', label='Measured')
-        axs1[j+2].set_ylabel(label)
-        axs1[j+2].set_xlabel('$t$')
-        axs1[j+2].grid()
-
-    # Plot Z states for the second figure if provided
-    if Z_labels is not None:
-        for j, label in enumerate(Z_labels):
-            if Z_true.shape[0] > 1:
-                if label == '$z_1$':
-                    r = len(days)-1
-                    for i in range(r):
-                        color = 'red' if eod_array[i] == 0 else 'green'
-                        start = days[i]
-                        
-                        end = days[i + 1]
-                        axs2[j+2].fill_betweenx([0, max_DLI], start, end, color=color, step='pre', alpha=0.08)
-                axs2[j+2].plot(days[:-1], Z_true[:, j])
-            else:
-                axs2[j+2].plot(days, np.append(Z_true[:, j], Z_true[:, j]))
-
-            axs2[j+2].set_ylabel(label)
-            axs2[j+2].set_xlabel('$t$')
-            axs2[j+2].grid()
-
-    plt.subplots_adjust(hspace=0.5)
-    if plt_show:
-        plt.show()
+from models.utils import *
+import json
 
 
-
-def plot_crop_casadi(t, u_max, u_min, U, X_true,  energy_price_array=None, photoperiod_array=None,eod_array=None, min_DLI=None, max_DLI=None, latexify=False, plt_show=True,
+def plot_crop_casadi(t, u_max, u_min, U, X_true,  energy_price_array=None, photoperiod_array=None,eod_array=None, min_DLI=None, max_DLI=None, plt_show=True,
                states_labels=[], labels_to_plot=[], min_points=[], max_points=[], end_mass=[], block=False, end_time=-1, title=''):
-    if latexify:
-        latexify_plot()
     if len(states_labels) == 0:
         raise IndexError('No state labels provided')
 
@@ -345,12 +204,12 @@ def generate_data_dict(photoperiod_length=None, darkperiod_length=None, Nsim=Non
     # N_horizon only used if shrink = False
     data_dict = {}
     if shrink:
-        data_dict['energy'] = fetch_electricity_prices('data/Spotprices_norway.csv', length=Nsim)
+        data_dict['energy'] = fetch_electricity_prices('../data/Spotprices_norway.csv', length=Nsim)
         data_dict['photoperiod'] = generate_photoperiod_values(photoperiod_length=photoperiod_length, darkperiod_length=darkperiod_length, Nsim=Nsim)
         data_dict['eod'] = generate_end_of_day_array(photoperiod_length=photoperiod_length, darkperiod_length=darkperiod_length, Nsim=Nsim)
         data_dict['son'] = generate_start_of_night_array(photoperiod_length=photoperiod_length, darkperiod_length=darkperiod_length, Nsim=Nsim)
     else:
-        data_dict['energy'] = fetch_electricity_prices('data/Spotprices_norway.csv', length=Nsim+N_horizon)
+        data_dict['energy'] = fetch_electricity_prices('../data/Spotprices_norway.csv', length=Nsim+N_horizon)
         data_dict['photoperiod'] = generate_photoperiod_values(photoperiod_length=photoperiod_length, darkperiod_length=darkperiod_length, Nsim=Nsim+N_horizon)
         data_dict['eod'] = generate_end_of_day_array(photoperiod_length=photoperiod_length, darkperiod_length=darkperiod_length, Nsim=Nsim+N_horizon)
         data_dict['son'] = generate_start_of_night_array(photoperiod_length=photoperiod_length, darkperiod_length=darkperiod_length, Nsim=Nsim+N_horizon)
@@ -373,30 +232,31 @@ def get_explicit_model(Crop, Env, is_rate_degradation=False, c_degr=400, ts=3600
     nx = x.shape[0]
     nu = u_control.shape[0]
     # The model
-    T_air = Env.T_air
-    CO2_air = Env.CO2
+    T_in = Env.T_in
+    CO2_in = Env.CO2_in
 
 
     PAR_flux = u_light * 0.217
 
     # Calculate stomatal and aerodynamic conductances (reciprocals of resistances)
-    LAI = SLA_to_LAI(SLA=Crop.SLA, c_tau=Crop.c_tau, leaf_to_shoot_ratio=Crop.leaf_to_shoot_ratio, X_s=x_s, X_ns=x_ns)
+    #LAI = SLA_to_LAI(SLA=Crop.SLA, c_tau=Crop.c_tau, leaf_to_shoot_ratio=Crop.leaf_to_shoot_ratio, X_s=x_s, X_ns=x_ns)
+    LAI = biomass_to_LAI(Crop.X_s, Crop.c_lar, Crop.c_tau)
     g_stm = 1 / stomatal_resistance_eq(u_light)
 
     g_bnd = 1 / aerodynamical_resistance_eq(Env.air_vel, LAI=LAI, leaf_diameter=Crop.leaf_diameter)
 
 
     # Dynamics equations adapted for CasADi
-    g_car = Crop.c_car_1 * T_air**2 + Crop.c_car_2 * T_air + Crop.c_car_3
+    g_car = Crop.c_car_1 * T_in**2 + Crop.c_car_2 * T_in + Crop.c_car_3
     g_CO2 = 1 / (1 / g_bnd + 1 / g_stm + 1 / g_car)
-    Gamma = Crop.c_Gamma * Crop.c_q10_Gamma ** ((T_air - 20) / 10)
+    Gamma = Crop.c_Gamma * Crop.c_q10_Gamma ** ((T_in - 20) / 10)
 
     #ULM_degratation = exp(- (PPFD - last_u)**2/400**2)
-    epsilon_biomass = Crop.c_epsilon * (CO2_air - Gamma) / (CO2_air + 2 * Gamma)
+    epsilon_biomass = Crop.c_epsilon * (CO2_in - Gamma) / (CO2_in + 2 * Gamma)
     if saturation_curve_type == 'rectangular':
-        f_phot_max = (epsilon_biomass * PAR_flux * g_CO2 * Crop.c_w * (CO2_air - Gamma)) / (epsilon_biomass * PAR_flux + g_CO2 * Crop.c_w * (CO2_air - Gamma))
+        f_phot_max = (epsilon_biomass * PAR_flux * g_CO2 * Crop.c_w * (CO2_in - Gamma)) / (epsilon_biomass * PAR_flux + g_CO2 * Crop.c_w * (CO2_in - Gamma))
     elif saturation_curve_type == 'exponential':
-        A_sat = g_CO2 * Crop.c_w * (CO2_air - Gamma)
+        A_sat = g_CO2 * Crop.c_w * (CO2_in - Gamma)
         k_slope =  0.87* epsilon_biomass / A_sat
         f_phot_max = A_sat * (1 - np.exp(-k_slope * PAR_flux))
     
@@ -405,9 +265,9 @@ def get_explicit_model(Crop, Env, is_rate_degradation=False, c_degr=400, ts=3600
     
     #f_phot_max = 0.000006*PAR_flux
     f_phot = (1 - np.exp(-Crop.c_K * LAI)) * f_phot_max 
-    f_resp = (Crop.c_resp_sht * (1 - Crop.c_tau) * x_s + Crop.c_resp_rt * Crop.c_tau * x_s) * Crop.c_q10_resp ** ((T_air - 25) / 10)
+    f_resp = (Crop.c_resp_sht * (1 - Crop.c_tau) * x_s + Crop.c_resp_rt * Crop.c_tau * x_s) * Crop.c_q10_resp ** ((T_in - 25) / 10)
     dw_to_fw = (1 - Crop.c_tau) / (Crop.dry_weight_fraction * Crop.plant_density)
-    r_gr = Crop.c_gr_max * x_ns / (Crop.c_gamma * x_s + x_ns + 0.001) * Crop.c_q10_gr ** ((T_air - 20) / 10)
+    r_gr = Crop.c_gr_max * x_ns / (Crop.c_gamma * x_s + x_ns + 0.001) * Crop.c_q10_gr ** ((T_in - 20) / 10)
     dX_ns = Crop.c_a * f_phot - r_gr * x_s - f_resp - (1 - Crop.c_beta) / Crop.c_beta * r_gr * x_s
     dX_s = r_gr * x_s
 
@@ -645,7 +505,7 @@ def solve_mpc(opti, u_symbol, x_symbol, energy_values, min_DLI, max_DLI):
 
 def plot_photosynthesis(Crop, Env, fun_type='rectangular', block=True):
     def f_phot_max_values(PAR_flux_values):
-        values = [Crop.return_photosynthesis(Env.CO2, Env.T_air, aerodynamical_resistance_eq(Env.air_vel,4, Crop.leaf_diameter), stomatal_resistance_eq(par), par, fun_type=fun_type) for par in PAR_flux_values]
+        values = [Crop.return_photosynthesis(Env.CO2_in, Env.T_in, aerodynamical_resistance_eq(Env.air_vel,4, Crop.leaf_diameter), stomatal_resistance_eq(par), par, fun_type=fun_type) for par in PAR_flux_values]
         return values
     PAR_flux_values = np.linspace(0, 4000, 400)  # From 0 to 2000 umol/m^2/s with 400 points
 
@@ -669,3 +529,12 @@ def plot_photosynthesis(Crop, Env, fun_type='rectangular', block=True):
     plt.grid(True)
     plt.legend()
     plt.show(block=block)
+
+def load_opt_config(file_path: str) -> dict:
+    """Load configuration from a JSON file."""
+    if file_path == 'opt_config.json' or file_path == 'opt_config_casadi.json':
+        with open('../mpc_optimization/' + file_path, 'r') as file:
+            return json.load(file)
+    else:
+        with open(file_path, 'r') as file:
+            return json.load(file)
