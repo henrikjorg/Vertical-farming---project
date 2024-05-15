@@ -174,3 +174,5 @@ mpc_optimization/acados_ocp.json
 mpc_optimization/acados_sim.json
 photosynthesis_saturation.pgf
 photosynthesis_transient.pgf
+mpc_optimization/test.py
+mpc_optimization/test.py

@@ -1,16 +1,16 @@
 import sys
 # setting path
-sys.path.append('../VF-SIMULATION')
+#sys.path.append('../VF-SIMULATION')
 import casadi as ca
 import numpy as np
-from mpc_optimization.opt_utils import *
+from opt_utils import *
 from models.utils import *
 from models.crop import CropModel
 from models.climate import ClimateModel
 from config.utils import load_config
 
 # Getting the crop and environment models
-config = load_config('config/')
+config = load_config('../config/')
 opt_config = load_opt_config('opt_config_casadi.json')
 
 N_horizon, ts, solver, photoperiod_length, u_max, u_min, min_DLI, max_DLI, l_end_mass, u_end_mass, is_rate_degradation, c_degr = get_params(opt_config)
@@ -27,6 +27,7 @@ energy_values = data_dict['energy'][:N_horizon].copy()
 plot_photosynthesis(Crop, Env, 'rectangular', block=False)
 
 plot_photosynthesis(Crop, Env, 'exponential', block=False)
+
 # --------------------------- Dynamic Model ------------------#
 # Create a crop model
 F, nx, nu= get_explicit_model(Crop, Env, is_rate_degradation=is_rate_degradation, c_degr=c_degr, ts=ts ,photoperiod_length=photoperiod_length, saturation_curve_type='rectangular')
@@ -64,7 +65,7 @@ sol_exp, u_opt_exp, x_opt_exp, tot_cost_dynamic_exp, tot_energy_dynamic_exp, min
 # ------------------------ Constant model ------------------------- #
 # Constant input
 
-F_static, nx, nu = get_explicit_model(Crop, Env, is_rate_degradation=is_rate_degradation, c_degr=c_degr, ts=ts, photoperiod_length=photoperiod_length)
+F_static, nx, nu = get_explicit_model(Crop, Env, is_rate_degradation=is_rate_degradation, c_degr=c_degr, ts=ts, photoperiod_length=photoperiod_length, saturation_curve_type='exponential')
 
 opti_const, obj_const, x_const, u_const, p_const, energy_const = mpc_setup_constant(F=F_static, nx=nx, nu=nu, x0=x0, N_horizon=N_horizon, l_end_mass=l_end_mass, u_end_mass=u_end_mass,
                               min_DLI=min_DLI, max_DLI=max_DLI, u_min=u_min, u_max=u_max, data_dict=data_dict, solver=solver)

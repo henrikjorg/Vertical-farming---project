@@ -259,7 +259,10 @@ def get_explicit_model(Crop, Env, is_rate_degradation=False, c_degr=400, ts=3600
         A_sat = g_CO2 * Crop.c_w * (CO2_in - Gamma)
         k_slope =  0.87* epsilon_biomass / A_sat
         f_phot_max = A_sat * (1 - np.exp(-k_slope * PAR_flux))
-    
+        #curve = 0
+        #slope = k_slope
+        #f_phot_max = (slope*PAR_flux + A_sat - np.sqrt(1e-9+(slope*PAR_flux)**2-4*curve*slope*PAR_flux*A_sat))/2*curve
+        #f_phot_max = 0.0000115*PAR_flux
     if is_rate_degradation:
         f_phot_max *= ca.exp(-((u_light-u_prev)/c_degr)**2)
     
@@ -329,23 +332,7 @@ def update_opti(opti, F,x,u,p,energy,current_time, end_time, N_horizon, l_end_ma
     opti.subject_to(x[:,0] == p)
     
     return opti
-    """
-    opti.subject_to()
-    for k in range(N_horizon):
-        opti.subject_to(x[:,k+1] == F(x[:,k], u[:,k]))
-        opti.subject_to([u[0,k] <= u_max, u[0,k] >= u_min])
-
-    # Setting u_prev
-    opti.subject_to(u[1,0] == 0)
-    for k in range(1, N_horizon):
-        opti.subject_to(u[1, k] == u[0, k-1])
-    opti.set_value(p, current_state)
-    opti.set_value(energy, current_energy)
-    opti.subject_to(x[:,0] == p)
-
-
-    opti.solver('ipopt')
-"""
+    
 def mpc_setup_dynamic(F, nx, nu, x0, N_horizon, l_end_mass, u_end_mass, min_DLI, max_DLI, u_min, u_max, data_dict, solver='ipopt'):
     # OPTIMAL CONTROL PROBLEM
     opti = ca.Opti()
@@ -427,7 +414,7 @@ def mpc_setup_constant(F, nx, nu, x0, N_horizon, l_end_mass, u_end_mass, min_DLI
     opti.minimize(obj)
     for k in range(N_horizon):
         opti.subject_to(x[:,k+1] == F(x[:,k], u[:,k]))
-        opti.subject_to([u[0,k] <= u_max, u[0,k] >= 0])
+        opti.subject_to([u[0,k] <= u_max, u[0,k] >= u_min])
 
     # Setting u_prev
     opti.subject_to(u[1,0] == 0)

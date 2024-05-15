@@ -7,7 +7,7 @@
     "u_max": 450,
     "u_min": 0,
 
-    "min_DLI": 200,
+    "min_DLI": 100,
     "max_DLI": 400,
 
     "lower_terminal_mass": 5.4,
