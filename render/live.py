@@ -232,7 +232,7 @@ class RenderLive:
 
     def _save_figure(self, figure, name, datetime_str):
         """Utility function to save figures."""
-        folder = 'render/plots/'
+        folder = '../render/plots/'
         filename = f"{datetime_str}_{name}.png"
         os.makedirs(folder, exist_ok=True) # Create the directory if it doesn't exist
         figure.savefig(folder + filename, dpi=100, bbox_inches='tight')

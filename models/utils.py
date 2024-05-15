@@ -1,7 +1,25 @@
 import numpy as np
 from config import *
 from scipy.interpolate import griddata
-import json
+from CoolProp.HumidAirProp import HAPropsSI
+
+def calculate_air_density(p, T):
+    """Calculate air density based on temperature [Kelvin]."""
+    M = 0.0289652 # Molar mass of dry air
+    R = 8.31446261815324 # Gas constant
+
+    return p*M/(R*T)
+
+def calculate_absolute_humidity(p, T, RH):
+    """Calculate absolute humidity based on temperature [C] and relative humidity [%]."""
+    T = T + 273.15 # Convert temperature to Kelvin
+    RH = RH/100 # Convert relative humidity to fraction
+
+    W = HAPropsSI('W','T',T,'P',p,'R',RH) # Humidity ratio of outside air [kg water/kg dry air]
+    
+    rho = calculate_air_density(p, T) # Density of outside dry air [kg/m^3]
+    Chi = W*rho # Absolute humidity outside [kg/m^3]
+    return Chi
 
 def net_radiation_equation(PAR_flux, CAC, rho_r):
     """
@@ -225,12 +243,3 @@ def estimate_Chi_surface(air_temperature, surface_temperature):
     vapor_concentration_air_based = rho_sat_air + delta_rho
     
     return vapor_concentration_air_based
-
-def load_config(file_path: str) -> dict:
-    """Load configuration from a JSON file."""
-    if file_path == 'opt_config.json' or file_path == 'opt_config_casadi.json':
-        with open('mpc_optimization/' + file_path, 'r') as file:
-            return json.load(file)
-    else:
-        with open(file_path, 'r') as file:
-            return json.load(file)
