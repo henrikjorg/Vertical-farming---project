@@ -8,9 +8,6 @@ from models.utils import *
 from models.crop import CropModel
 from models.climate import ClimateModel
 from config.utils import load_config
-import json
-
-
 
 # Getting the crop and environment models
 config = load_config('../config/')
