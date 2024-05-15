@@ -10,7 +10,8 @@
     "V_in": 36,
     "V_hvac": 2.88,
 
-    "eta_light": 0.5,
+    "C_r": 0.06,
+    "eta_light": 0.7,
     "eta_rot_T": 0.8,
     "eta_rot_Chi": 0.7,
     "heating_capacity": 1000,
