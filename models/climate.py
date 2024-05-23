@@ -36,8 +36,6 @@ class ClimateModel:
 
         self.C_in = self.rho_air*self.c_air*self.V_in    
         self.C_env = self.rho_env*self.c_env*self.A_env*self.x_env
-        # print("C env: ", self.C_env)
-        # self.C_env = 70000
 
         self.eta_light = get_attribute(config, 'eta_light')
         self.c_r = get_attribute(config, 'c_r')
@@ -52,10 +50,9 @@ class ClimateModel:
         # Initial state
         self.T_in = self.T_desired
         self.Chi_in = self.Chi_desired
-        # print("Chi in: ", self.Chi_in)
         self.CO2_in = self.CO2_desired
 
-        self.T_env = self.T_in - 3
+        self.T_env = self.T_in
         self.T_sup = self.T_in
         self.Chi_sup = self.Chi_in
         self.T_crop = self.T_in
