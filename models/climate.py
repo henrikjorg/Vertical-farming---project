@@ -15,11 +15,14 @@ class ClimateModel:
         self.c_air = get_attribute(config, 'c_air')       
         self.rho_c = get_attribute(config, 'rho_c') 
         self.c_p = get_attribute(config, 'c_p')
-        self.C_env = get_attribute(config, 'C_env')
         self.C_hvac = get_attribute(config, 'C_hvac')
         self.c_duct = get_attribute(config, 'c_duct')
+        self.rho_env = get_attribute(config, 'rho_env')
+        self.c_env = get_attribute(config, 'c_env')
+        self.x_env = get_attribute(config, 'x_env')
 
         self.alpha_env = get_attribute(config, 'alpha_env')
+        self.alpha_ext = get_attribute(config, 'alpha_ext')
         self.air_vel = get_attribute(config, 'air_vel')
         self.CO2_out = get_attribute(config, 'CO2_out')
 
@@ -32,6 +35,9 @@ class ClimateModel:
         self.V_hvac = get_attribute(config, 'V_hvac')
 
         self.C_in = self.rho_air*self.c_air*self.V_in    
+        self.C_env = self.rho_env*self.c_env*self.A_env*self.x_env
+        # print("C env: ", self.C_env)
+        # self.C_env = 70000
 
         self.eta_light = get_attribute(config, 'eta_light')
         self.c_r = get_attribute(config, 'c_r')
@@ -46,9 +52,10 @@ class ClimateModel:
         # Initial state
         self.T_in = self.T_desired
         self.Chi_in = self.Chi_desired
+        # print("Chi in: ", self.Chi_in)
         self.CO2_in = self.CO2_desired
 
-        self.T_env = self.T_in
+        self.T_env = self.T_in - 3
         self.T_sup = self.T_in
         self.Chi_sup = self.Chi_in
         self.T_crop = self.T_in
@@ -75,48 +82,71 @@ class ClimateModel:
             for attr, value in vars(self).items():
                 print(f"{attr}: {value}")
 
-    def temperature_ODE(self, U_par, Chi_crop, T_sup, u_sup, CAC, LAI, r_stm, r_bnd):
+    def temperature_ODE(self, U_par, Chi_crop, u_sup, CAC, LAI, r_stm, r_bnd):
         Q_env = self.alpha_env*self.A_env*(self.T_env - self.T_in)
 
-        Q_trans = LAI * self.Lambda * self.A_crop * (Chi_crop - self.Chi_in) / (r_stm + r_bnd)
+        P_light = (U_par*self.A_crop)/self.eta_light
+        
+        Q_ineff = (1-self.eta_light)*P_light
+        Q_refl = U_par*(1-CAC)*self.c_r*self.A_crop
+        Q_light = Q_ineff + Q_refl
 
-        P_light = U_par/self.eta_light
-        Q_light_ineff = (1-self.eta_light)*P_light
-        R_net = (1-self.c_r)*U_par*CAC
-        Q_sens_reflected = U_par - R_net
+        R_net = (U_par * CAC * (1 - self.c_r))*self.A_crop
+        Q_sens_plant = (LAI * self.Lambda * self.A_crop * (Chi_crop - self.Chi_in) / (r_stm + r_bnd)) - R_net 
 
-        Q_light = Q_light_ineff + Q_sens_reflected
+        # Q_hvac = u_sup*self.rho_air*self.c_air*(self.T_sup - self.T_in)
+        # Q_hvac = -(Q_env + Q_trans + Q_light)
+        Q_hvac = 0
 
-        Q_hvac = u_sup*self.rho_air*self.c_air*(T_sup - self.T_in)
+        print("Q_env: ", Q_env)
+        print("Q sens plant: ", Q_sens_plant)
+        print("Q light: ", Q_light)
+        print("Q hvac: ", Q_hvac)
+        print()
 
-        return (1/self.C_in)*(Q_env + Q_trans + Q_light + Q_hvac)
+        return (1/self.C_in)*(Q_env - Q_sens_plant + Q_light + Q_hvac)
     
     def env_temperature_ODE(self, T_out):
-        return (1/self.C_env)*(self.alpha_env*self.A_env*(self.T_in - self.T_env) + self.alpha_env*self.A_env*(T_out - self.T_env))
+        return (1/self.C_env)*(self.alpha_env*self.A_env*(self.T_in - self.T_env) + self.alpha_ext*self.A_env*(T_out - self.T_env))
     
     def sup_temperature_ODE(self, u_sup, T_hvac):
+        # return 0
         return (1/self.C_hvac)*u_sup*self.rho_air*self.c_duct*(T_hvac - self.T_sup)
 
-    def humidity_ODE(self, Chi_sup, Chi_crop, u_sup, LAI, r_stm, r_bnd):
+    def humidity_ODE(self, Chi_crop, u_sup, LAI, r_stm, r_bnd):
         Phi_trans = LAI * self.A_crop * (Chi_crop - self.Chi_in) / (r_stm + r_bnd)
 
-        Phi_hvac = u_sup*(Chi_sup - self.Chi_in)
+        # Phi_hvac = u_sup*(self.Chi_sup - self.Chi_in)
+        Phi_hvac = - Phi_trans
 
+        # print("Phi_trans:", Phi_trans)
+        # print("Phi_hvac:", Phi_hvac)
+        # print()
+
+        # return 0
         return (1/self.V_in)*(Phi_trans + Phi_hvac)
     
     def sup_humidity_ODE(self, u_sup, Chi_hvac):
+        # return 0
         return (1/self.V_hvac)*(u_sup*(Chi_hvac - self.Chi_sup))
     
     def CO2_ODE(self, f_phot, u_sup, Phi_c_inj):
         Phi_c_ass = - f_phot*self.A_crop
 
-        Phi_c_hvac = u_sup*(self.rho_c/1000)*(self.CO2_out - self.CO2_in)
+        # Phi_c_hvac = u_sup*(self.rho_c/1000)*(self.CO2_out - self.CO2_in)
+        Phi_c_hvac = 0
+
+        Phi_c_inj = 0
 
         return (1/(self.V_in*self.rho_c))*(Phi_c_inj + Phi_c_ass + Phi_c_hvac)
 
     def combined_ODE(self, state, control_inputs, data, hvac_input):
         T_in, Chi_in, CO2_in, T_env, T_sup, Chi_sup, X_ns, X_s = state
         self._update_state(T_in, Chi_in, CO2_in, T_env, T_sup, Chi_sup)
+
+        # TESTING WITH CONSTANT SUPPLY
+        # self.T_sup = self.T_desired
+        # self.Chi_sup = self.Chi_desired
         
         LAI = self.crop_model.LAI
         CAC = self.crop_model.CAC
@@ -134,10 +164,11 @@ class ClimateModel:
         
         r_stm = stomatal_resistance_eq(PPFD=PPFD)
         r_bnd = aerodynamical_resistance_eq(uninh_air_vel=self.air_vel, LAI=LAI, leaf_diameter=self.crop_model.leaf_diameter)
+
         Chi_crop = calculate_absolute_humidity(self.p, self.T_crop, 100)
 
-        dT_in_dt = self.temperature_ODE(U_par, Chi_crop, T_sup, u_sup, CAC, LAI, r_stm, r_bnd)
-        dChi_in_dt = self.humidity_ODE(Chi_sup, Chi_crop, u_sup, LAI, r_stm, r_bnd)
+        dT_in_dt = self.temperature_ODE(U_par, Chi_crop, u_sup, CAC, LAI, r_stm, r_bnd)
+        dChi_in_dt = self.humidity_ODE(Chi_crop, u_sup, LAI, r_stm, r_bnd)
         dCO2_in_dt = self.CO2_ODE(f_phot, u_sup, u_c_inj)
         dT_env_dt = self.env_temperature_ODE(T_out)
         dT_sup_dt = self.sup_temperature_ODE(u_sup, T_hvac)

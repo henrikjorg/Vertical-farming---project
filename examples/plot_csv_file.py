@@ -7,7 +7,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from render.plot import *
 
-df = pd.read_csv('../render/csv/150524-1640_simulation.csv')
+df = pd.read_csv('../render/csv/230524-1611_simulation.csv')
 
 date_strings = df['Date'].to_numpy()
 dates = pd.to_datetime(date_strings)
@@ -23,7 +23,7 @@ actions = df[['u_rot', 'u_fan', 'u_cool', 'u_heat', 'u_humid', 'u_c_inj', 'PPFD'
 all_data = df[['T_out', 'RH_out', 'Electricity price']].to_numpy().T
 
 plot_climate_figure(dates, solutions, climate_attrs, all_data)
-plot_crop_figure(dates, solutions, crop_attrs)
-plot_control_input_figure(dates, actions)
+# plot_crop_figure(dates, solutions, crop_attrs)
+# plot_control_input_figure(dates, actions)
 
 plt.waitforbuttonpress()

@@ -25,11 +25,12 @@ def plot_climate_figure(dates, y, climate_attrs, all_data):
     temp_ax.set_ylabel('Temperature [°C]')
     temp_ax.plot(dates, y[0, :], linewidth=2) # T_in
     temp_ax.plot(dates, y[3, :], linewidth=1) # T_env
-    temp_ax.plot(dates, y[4, :], linewidth=1) # T_sup
+    # temp_ax.plot(dates, y[4, :], linewidth=1) # T_sup
     temp_ax.plot(dates, all_data[0, :], linestyle='-', linewidth=1)[0] # T_out
     # temp_ax.plot(dates, climate_attrs[4, :], linewidth=1)[0] # T_crop
     temp_ax.axhline(y=y[0, 0], color='grey', linestyle='--', linewidth=1.5, alpha=0.5) # T_des
-    temp_ax.legend(["T_in", "T_env", "T_sup", "T_out", "T_des"])
+    temp_ax.legend(["T_in", "T_env", "T_out", "T_des"])
+    # temp_ax.legend(["T_in", "T_env", "T_sup", "T_out", "T_des"])
 
     humid_ax = climate_axes[1]
     humid_ax.set_ylabel('Humidity [g/m³]')

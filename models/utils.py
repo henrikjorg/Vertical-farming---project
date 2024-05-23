@@ -18,7 +18,8 @@ def calculate_absolute_humidity(p, T, RH):
     W = HAPropsSI('W','T',T,'P',p,'R',RH) # Humidity ratio of outside air [kg water/kg dry air]
     
     rho = calculate_air_density(p, T) # Density of outside dry air [kg/m^3]
-    Chi = W*rho # Absolute humidity outside [kg/m^3]
+
+    Chi = (W*1000)*rho # Absolute humidity outside [g/m^3]
     return Chi
 
 def net_radiation_equation(PAR_flux, CAC, rho_r):

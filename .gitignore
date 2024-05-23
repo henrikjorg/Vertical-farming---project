@@ -176,3 +176,6 @@ photosynthesis_saturation.pgf
 photosynthesis_transient.pgf
 mpc_optimization/test.py
 mpc_optimization/test.py
+
+render/csv
+render/plots

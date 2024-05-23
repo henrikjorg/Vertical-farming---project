@@ -45,8 +45,8 @@ class HVACModel:
 
         return T_heat
     
-    def humidifier(self, Chi_cool, u_humid):
-        Chi_humid = Chi_cool + u_humid
+    def humidifier(self, Chi_cool, u_humid, u_sup):
+        Chi_humid = Chi_cool + u_humid/u_sup
 
         return Chi_humid
     
@@ -84,6 +84,6 @@ class HVACModel:
 
         T_heat = self.heating_coil(T_cool, u_heat, u_sup)
 
-        Chi_humid = self.humidifier(Chi_cool, u_humid)
+        Chi_humid = self.humidifier(Chi_cool, u_humid, u_sup)
 
         return T_heat - 273.15, Chi_humid, Chi_out

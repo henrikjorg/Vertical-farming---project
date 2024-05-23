@@ -12,8 +12,14 @@ import numpy as np
 
 config = load_config('../config/')
 
-start_date = '2023-04-01'
-end_date = '2023-04-22'
+# Winter scenario
+# start_date = '2023-02-05'
+# end_date = '2023-02-25'
+
+# Summer scenario
+start_date = '2023-07-10'
+end_date = '2023-07-30'
+
 start_datetime = datetime.datetime.strptime(start_date, '%Y-%m-%d')
 end_datetime = datetime.datetime.strptime(end_date, '%Y-%m-%d')
 
@@ -25,7 +31,8 @@ base_pattern = np.concatenate([np.full(16, 1), np.full(8, 0)])
 PPFDs = np.tile(base_pattern, num_days)
 PPFDs = np.append(PPFDs, 0)
 
-eval_env = VerticalFarmEnv(start_datetime, config, data, end_datetime=end_datetime, render_mode='file')
+# eval_env = VerticalFarmEnv(start_datetime, config, data, end_datetime=end_datetime, render_mode='file')
+eval_env = VerticalFarmEnv(start_datetime, config, data, render_mode='file')
 
 obs, _ = eval_env.reset()
 i = 0
@@ -35,54 +42,63 @@ while True:
     T_hvac, Chi_hvac, Chi_out, CO2_out, T_crop, T_desired, Chi_desired, CO2_desired = obs[11:19]
     T_out, RH_out, electricity_price = obs[19:22]
 
-    # HYPOTHETICAL SCENARIOS
-    # action = [u_rot, u_fan, u_cool, u_heat, u_humid, u_c_inj, PPFD] (Normalized values 0-1)
+    #############################################
+    #                                           #
+    #                 PD control                #
+    #                                           #
+    #############################################
 
     # TEST P CONTROLLER
-    # T_error = T_desired - T_in
+    T_error = T_desired - T_in
+    Chi_error = Chi_desired - Chi_in
+    CO2_error = CO2_desired - CO2_in
 
-    # Kp = 0.2
-    # u_heat = Kp*T_error
+    u_humid = 0
+    # Kp_humid = 300
+    # u_humid = Kp_humid*Chi_error
+    # u_humid = max(0, min(1, u_humid))
+
+    u_sup = 0
+    # combined_error = abs(T_error) + abs(Chi_error)
+    # Kp_sup = 0.1
+    # u_sup = Kp_sup*combined_error
+    # u_sup = max(0, min(1, u_sup))
+    u_sup = 1
+
+    u_rot = 0.5
+    if T_error > 0 or Chi_error > 0:
+        u_rot = 1
+
+    u_c_inj = 0
+    # Kp_c_inj = 0.1
+    # u_c_inj = Kp_c_inj*CO2_error
+    # u_c_inj = max(0, min(1, u_c_inj))
+
+    u_heat = 0
+    # Kp_heat = 0.2
+    # u_heat = Kp_heat*T_error
     # u_heat = max(0, min(1, u_heat))
-    # # print("u_heat PD: ", u_heat)
 
-    # # SCENARIO 1:
-    # u_c_inj = 0
-    # if CO2_in < CO2_desired:
-    #     u_c_inj = 1
-
-    # u_humid = 0
-    # if Chi_in < Chi_desired:
-    #     u_humid = 1
+    u_cool = 0
+    # Kp_cool = 0.2
+    # u_cool = Kp_cool*T_error
+    # u_cool = min(0, max(-1, u_cool))
+    # u_cool = -u_cool
 
 
-    # COOLER: Moisture control!!!
+    # PRINT
+    # print("u_rot P: ", u_rot)
+    # print("u_sup P: ", u_sup)
+    # print("u_cool P: ", u_cool)
+    # print("u_heat P: ", u_heat)
+    # print("u_humid P: ", u_humid)
+    # print("u_c_inj P: ", u_c_inj)
+    # print()
 
-    # u_heat = 0
-    # if T_in < T_desired - 1:
-    #     u_heat = 1
-
-    # u_fan = 0.5
-    # if Chi_in > Chi_desired or T_in > T_desired + 1:
-    #     u_fan = 1
-
-    # action = np.array([1, u_fan, 0, u_heat, u_humid, u_c_inj])
-
-    # SCENARIO 2: Cooling if temperature is above 25 degrees
-    # if T_in > T_desired + 1:
-    #     action = np.array([0, 0.1, 1, 0, 0, 0, 0])
-    # else:
-    #     action = np.array([0, 0.1, 0, 0, 0, 0, 0])
-
-    # SCENARIO 3: Balanced CO2 injection
-    # if CO2_in < CO2_desired - 100:
-    #     action = np.array([0, 0.1, 0, 0, 0, 1, 0])
-    # else:
-    #     action = np.array([0, 0.1, 0, 0, 0, 0, 0])
 
     PPFD = PPFDs[i]
 
-    action = np.array([1, 1, 0, 1, 1, 1, PPFD])
+    action = np.array([u_rot, u_sup, u_cool, u_heat, u_humid, u_c_inj, PPFD])
 
     obs, rewards, terminated, truncated, info = eval_env.step(action)
     eval_env.render()
