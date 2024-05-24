@@ -29,11 +29,11 @@ class VerticalFarmEnv(gym.Env):
         self.data = data
         self.render_mode = render_mode
 
-        # Initialize model
-        self.model = Model(self.config)
-
         # Get simulation configuration attributes
         self.cycle_duration_days = get_attribute(config, 'cycle_duration_days')
+
+        # Initialize model
+        self.model = Model(self.config, self.cycle_duration_days)
 
         # Set attributes to render
         self.crop_attributes_to_render = ['LAI', 'CAC', 'f_phot']
@@ -135,7 +135,7 @@ class VerticalFarmEnv(gym.Env):
                         y0=self.y0,
                         method='RK45',
                         t_eval=np.linspace(0, self.seconds_per_iter, num=self.seconds_per_iter),
-                        args=[control_input, external_input, hvac_input])
+                        args=[control_input, external_input, hvac_input, self.current_step])
         
         self.process_solution(sol, action, data)
 
@@ -190,8 +190,33 @@ class VerticalFarmEnv(gym.Env):
         self.visualization.render(self.terminated, self.current_step, self.t_eval, self.model, self.solutions, self.climate_attrs, self.crop_attrs, self.actions, self.all_data, self.cur_index_i)
         
     def close(self):
+        # NB! This is a temporary solution to fill the zero values of Q and Phi for plotting
+        # The arrays storing the intermediate values of Q and Phi from inside the solve_ivp function are not fully filled
+
+        self.model.climate_model.Q_data[0,:] = fill_zeros_with_last(self.model.climate_model.Q_data[0,:])
+        self.model.climate_model.Q_data[1,:] = fill_zeros_with_last(self.model.climate_model.Q_data[1,:])
+        self.model.climate_model.Q_data[2,:] = fill_zeros_with_last(self.model.climate_model.Q_data[2,:])
+        self.model.climate_model.Q_data[3,:] = fill_zeros_with_last(self.model.climate_model.Q_data[3,:])
+
+        # Set values of Q_light where PPFD = 0 to 0
+        for i in range(len(self.model.climate_model.Q_data[2,:])):
+            if self.actions[6,i] == 0:
+                self.model.climate_model.Q_data[2,i] = 0
+
+        self.model.climate_model.Phi_data[0,:] = fill_zeros_with_last(self.model.climate_model.Phi_data[0,:])
+        self.model.climate_model.Phi_data[1,:] = fill_zeros_with_last(self.model.climate_model.Phi_data[1,:])
+        self.model.climate_model.Phi_c_data[0,:] = fill_zeros_with_last(self.model.climate_model.Phi_c_data[0,:])
+        self.model.climate_model.Phi_c_data[1,:] = fill_zeros_with_last(self.model.climate_model.Phi_c_data[1,:])
+        self.model.climate_model.Phi_c_data[2,:] = fill_zeros_with_last(self.model.climate_model.Phi_c_data[2,:])
+
         if self.render_mode == 'file':
-            self.visualization.save(self.t_eval, self.solutions, self.climate_attrs, self.crop_attrs, self.actions, self.all_data)
+            self.visualization.save(self.t_eval, self.model, self.solutions, self.climate_attrs, self.crop_attrs, self.actions, self.all_data)
         if self.visualization != None:
             self.visualization.close()
             self.visualization = None
+
+def fill_zeros_with_last(arr):
+    prev = np.arange(len(arr))
+    prev[arr == 0] = 0
+    prev = np.maximum.accumulate(prev)
+    return arr[prev]

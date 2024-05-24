@@ -4,8 +4,8 @@ from models.crop import CropModel
 from config.utils import get_attribute
 
 class Model:
-    def __init__(self, config):
-        self.climate_model = ClimateModel(config)
+    def __init__(self, config, cycle_duration_days):
+        self.climate_model = ClimateModel(config, cycle_duration_days)
         self.crop_model = CropModel(config)
 
         # Set references between models
@@ -35,12 +35,12 @@ class Model:
         self.climate_model.print_attributes("T_in", "Chi_in", "CO2_in", "T_env", "T_sup", "Chi_sup")
         self.crop_model.print_attributes("X_ns", "X_s")
 
-    def ODEs(self, t, state, control_input, external_input, hvac_input, ignore_environment = False):
+    def ODEs(self, t, state, control_input, external_input, hvac_input, current_step, ignore_environment = False):
         # Update models
         if ignore_environment:
             climate_derivatives = np.zeros(6)
         else:
-            climate_derivatives = self.climate_model.combined_ODE(state, control_input, external_input, hvac_input)
+            climate_derivatives = self.climate_model.combined_ODE(t, current_step, state, control_input, external_input, hvac_input)
         
         crop_derivatives = self.crop_model.combined_ODE(state, control_input, external_input)
 

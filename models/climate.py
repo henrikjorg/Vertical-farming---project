@@ -6,7 +6,7 @@ from config.utils import get_attribute
 from models.utils import calculate_absolute_humidity
 
 class ClimateModel:
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: Dict[str, Any], cycle_duration_days):
         self.hvac_model = HVACModel(config)
 
         # Get constants and parameters from config
@@ -59,6 +59,14 @@ class ClimateModel:
 
         self.init_state = np.array([self.T_in, self.Chi_in, self.CO2_in, self.T_env, self.T_sup, self.Chi_sup])
 
+        # Initialize arrays to store intermediate data from solve_ivp function
+        num_seconds = 24*60*60*cycle_duration_days + 1
+        self.Q_data = np.zeros([4, num_seconds], dtype=float)
+        self.Phi_data = np.zeros([2, num_seconds], dtype=float)
+        self.Phi_c_data = np.zeros([3, num_seconds], dtype=float)
+
+        self.t = 0
+
     def set_crop_model(self, crop_model):
         self.crop_model = crop_model
 
@@ -85,7 +93,7 @@ class ClimateModel:
         P_light = (U_par*self.A_crop)/self.eta_light
         
         Q_ineff = (1-self.eta_light)*P_light
-        Q_refl = U_par*(1-CAC)*self.c_r*self.A_crop
+        Q_refl = U_par*CAC*self.c_r*self.A_crop
         Q_light = Q_ineff + Q_refl
 
         R_net = (U_par * CAC * (1 - self.c_r))*self.A_crop
@@ -95,13 +103,16 @@ class ClimateModel:
         # Q_hvac = -(Q_env + Q_trans + Q_light)
         Q_hvac = 0
 
-        print("Q_env: ", Q_env)
-        print("Q sens plant: ", Q_sens_plant)
-        print("Q light: ", Q_light)
-        print("Q hvac: ", Q_hvac)
-        print()
+        Qs = np.array([[Q_env, Q_sens_plant, Q_light, Q_hvac]]).T
+        self.Q_data[:, self.t] = Qs[:, 0]
+        
+        # print("Q_env: ", Q_env)
+        # print("Q sens plant: ", Q_sens_plant)
+        # print("Q light: ", Q_light)
+        # print("Q hvac: ", Q_hvac)
+        # print()
 
-        return (1/self.C_in)*(Q_env - Q_sens_plant + Q_light + Q_hvac)
+        return (1/self.C_in)*(Q_env + Q_sens_plant + Q_light + Q_hvac)
     
     def env_temperature_ODE(self, T_out):
         return (1/self.C_env)*(self.alpha_env*self.A_env*(self.T_in - self.T_env) + self.alpha_ext*self.A_env*(T_out - self.T_env))
@@ -115,6 +126,9 @@ class ClimateModel:
 
         # Phi_hvac = u_sup*(self.Chi_sup - self.Chi_in)
         Phi_hvac = - Phi_trans
+
+        Phis = np.array([[Phi_trans, Phi_hvac]]).T
+        self.Phi_data[:, self.t] = Phis[:, 0]
 
         # print("Phi_trans:", Phi_trans)
         # print("Phi_hvac:", Phi_hvac)
@@ -133,11 +147,16 @@ class ClimateModel:
         # Phi_c_hvac = u_sup*(self.rho_c/1000)*(self.CO2_out - self.CO2_in)
         Phi_c_hvac = 0
 
-        Phi_c_inj = 0
+        Phi_c_inj = -(Phi_c_ass + Phi_c_hvac)
+
+        Phis = np.array([[Phi_c_ass, Phi_c_hvac, Phi_c_inj]]).T
+        self.Phi_c_data[:, self.t] = Phis[:, 0]
 
         return (1/(self.V_in*self.rho_c))*(Phi_c_inj + Phi_c_ass + Phi_c_hvac)
 
-    def combined_ODE(self, state, control_inputs, data, hvac_input):
+    def combined_ODE(self, t, current_step, state, control_inputs, data, hvac_input):
+        self.t = int(t) + int(60*60*current_step)
+
         T_in, Chi_in, CO2_in, T_env, T_sup, Chi_sup, X_ns, X_s = state
         self._update_state(T_in, Chi_in, CO2_in, T_env, T_sup, Chi_sup)
 

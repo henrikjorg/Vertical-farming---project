@@ -34,17 +34,21 @@ class RenderFile:
             2: "Electricity price"
         }
 
+        self.Q_labels = ["Q_env", "Q_sens_plant", "Q_light", "Q_hvac"]
+        self.Phi_labels = ["Phi_trans", "Phi_hvac"]
+        self.Phi_c_labels = ["Phi_c_ass", "Phi_c_hvac", "Phi_c_inj"]
+
         self.csv_file = None
 
     def render(self, terminated, current_step, t, model, solutions, climate_attrs, crop_attrs, actions, all_data, index):
         pass
 
-    def save(self, t, solutions, climate_attrs, crop_attrs, actions, all_data):
+    def save(self, t, model, solutions, climate_attrs, crop_attrs, actions, all_data):
         self.csv_file = open(self.file_name, 'w', newline='')
         writer = csv.writer(self.csv_file)
 
         # Create the header row
-        header = ["Date", "t"] + self.y_labels + list(climate_attrs.keys()) + list(crop_attrs.keys()) + self.action_labels + list(self.data_info.values())
+        header = ["Date", "t"] + self.y_labels + list(climate_attrs.keys()) + list(crop_attrs.keys()) + self.action_labels + list(self.data_info.values()) + self.Q_labels + self.Phi_labels + self.Phi_c_labels
         writer.writerow(header)
 
         data = []
@@ -54,6 +58,7 @@ class RenderFile:
 
             for j in range(solutions.shape[0]):
                 data_row.append(solutions[j, i])
+
             # Add climate and crop data
             if climate_attrs:
                 for value in climate_attrs.values():
@@ -69,6 +74,18 @@ class RenderFile:
             # Add data
             for d in all_data[:, i]:
                 data_row.append(d)
+
+            # Add Q values
+            for Q in model.climate_model.Q_data[:, i]:
+                data_row.append(Q)
+
+            # Add Phi values
+            for Phi in model.climate_model.Phi_data[:, i]:
+                data_row.append(Phi)
+
+            # Add Phi_c values
+            for Phi_c in model.climate_model.Phi_c_data[:, i]:
+                data_row.append(Phi_c)
 
             data.append(data_row)
 

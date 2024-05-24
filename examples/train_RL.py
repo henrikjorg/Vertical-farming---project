@@ -4,6 +4,7 @@
 #
 # Reason for deprecation:
 # - The current implementation of the Gymnasium environment does not implement a suitable reward function for reinforcement learning.
+# - The action space is not used, now the HVAC system is "controlled" by always being in balance with the heat transfer.
 #
 # Reference Documentation:
 # - Reinforcement Learning Tips and Tricks: https://stable-baselines.readthedocs.io/en/master/guide/rl_tips.html
