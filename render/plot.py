@@ -23,23 +23,23 @@ def plot_climate_figure(dates, y, climate_attrs, all_data):
 
     temp_ax = climate_axes[0]
     temp_ax.set_ylabel('Temperature [°C]')
-    temp_ax.plot(dates, y[0, :], linewidth=2) # T_in
+    temp_ax.plot(dates, y[0, :], linewidth=1, linestyle='--', alpha=0.5) # T_in
     temp_ax.plot(dates, y[3, :], linewidth=1) # T_env
-    # temp_ax.plot(dates, y[4, :], linewidth=1) # T_sup
+    temp_ax.plot(dates, y[4, :], linewidth=1) # T_sup
     temp_ax.plot(dates, all_data[0, :], linestyle='-', linewidth=1)[0] # T_out
     # temp_ax.plot(dates, climate_attrs[4, :], linewidth=1)[0] # T_crop
-    temp_ax.axhline(y=y[0, 0], color='grey', linestyle='--', linewidth=1.5, alpha=0.5) # T_des
-    temp_ax.legend(["T_in", "T_env", "T_out", "T_des"])
-    # temp_ax.legend(["T_in", "T_env", "T_sup", "T_out", "T_des"])
+    # temp_ax.axhline(y=y[0, 0], color='grey', linestyle='--', linewidth=1.5, alpha=0.5) # T_des
+    # temp_ax.legend(["T_in", "T_env", "T_out", "T_des"])
+    temp_ax.legend(["T_in", "T_env", "T_sup", "T_out"])
 
     humid_ax = climate_axes[1]
     humid_ax.set_ylabel('Humidity [g/m³]')
-    humid_ax.plot(dates, y[1, :], linewidth=2)[0]
-    humid_ax.plot(dates, climate_attrs[2, :], linestyle='-', linewidth=1)[0]
+    humid_ax.plot(dates, y[1, :], linewidth=1, linestyle='--', alpha=0.5)
+    humid_ax.plot(dates, climate_attrs[2, :], linestyle='-', linewidth=1)
     humid_ax.plot(dates, y[5, :], linewidth=2)[0]
     # humid_ax.plot(dates, climate_attrs[1, :], linewidth=1)[0]
-    humid_ax.axhline(y=y[1, 0], color='grey', linestyle='--', linewidth=1.5, alpha=0.5)
-    humid_ax.legend(["Chi_in", "Chi_out", "Chi_sup", "Chi_des"])
+    # humid_ax.axhline(y=y[1, 0], color='grey', linestyle='--', linewidth=1.5, alpha=0.5)
+    humid_ax.legend(["Chi_in", "Chi_out", "Chi_sup"])
 
     co2_ax = climate_axes[2]
     co2_ax.set_ylabel('CO2 [ppm]')
@@ -60,7 +60,7 @@ def plot_climate_figure(dates, y, climate_attrs, all_data):
 
 
 def plot_crop_figure(dates, y, crop_attrs):
-    crop_fig, crop_axes = plt.subplots(3, 1, figsize=(10, 10), sharex=True, dpi=100)
+    crop_fig, crop_axes = plt.subplots(4, 1, figsize=(10, 10), sharex=True, dpi=100)
     crop_fig.supxlabel('Date')
 
     X_ns_ax = crop_axes[0]
@@ -75,10 +75,14 @@ def plot_crop_figure(dates, y, crop_attrs):
     LAI_ax.set_ylabel('LAI [m²/m²]')
     LAI_ax.plot(dates, crop_attrs[0,:], linewidth=2)
 
+    CAC_ax = crop_axes[3]
+    CAC_ax.set_ylabel('CAC [%]')
+    CAC_ax.plot(dates, crop_attrs[1,:], linewidth=2)
+
     # Set shared date format on the x-axis
-    LAI_ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
-    LAI_ax.xaxis.set_major_locator(mdates.DayLocator(interval=1))
-    plt.setp(LAI_ax.get_xticklabels(), rotation=45, ha='right')
+    CAC_ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+    CAC_ax.xaxis.set_major_locator(mdates.DayLocator(interval=1))
+    plt.setp(CAC_ax.get_xticklabels(), rotation=45, ha='right')
 
     # Set shared x-axis limits
     LAI_ax.set_xlim(dates[0], dates[-1])
@@ -101,5 +105,43 @@ def plot_control_input_figure(dates, actions):
 
     # Set shared x-axis limits
     u_axes[-1].set_xlim(dates[0], dates[-1])
+
+    plt.show(block=False)
+
+def plot_Qs(dates, Qs):
+    Q_fig, Q_axes = plt.subplots(4, 1, figsize=(10, 10), sharex=True, dpi=100)
+    Q_fig.supxlabel('Date')
+
+    labels = ['Q_env', 'Q_sens_plant', 'Q_light', 'Q_hvac']
+    for i, ax in enumerate(Q_axes):
+            ax.set_ylabel(labels[i])
+            ax.plot(dates, Qs[i,:], linewidth=2)
+
+    # Set shared date format on the x-axis
+    Q_axes[-1].xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+    Q_axes[-1].xaxis.set_major_locator(mdates.DayLocator(interval=1))
+    plt.setp(Q_axes[-1].get_xticklabels(), rotation=45, ha='right')
+
+    # Set shared x-axis limits
+    Q_axes[-1].set_xlim(dates[0], dates[-1])
+
+    plt.show(block=False)
+
+def plot_Phis(dates, Phis):
+    Phi_fig, Phi_axes = plt.subplots(5, 1, figsize=(10, 10), sharex=True, dpi=100)
+    Phi_fig.supxlabel('Date')
+
+    labels = ['Phi_trans', 'Phi_hvac', 'Phi_c_inj', 'Phi_c_hvac', 'Phi_c_ass']
+    for i, ax in enumerate(Phi_axes):
+            ax.set_ylabel(labels[i])
+            ax.plot(dates, Phis[i,:], linewidth=2)
+
+    # Set shared date format on the x-axis
+    Phi_axes[-1].xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+    Phi_axes[-1].xaxis.set_major_locator(mdates.DayLocator(interval=1))
+    plt.setp(Phi_axes[-1].get_xticklabels(), rotation=45, ha='right')
+
+    # Set shared x-axis limits
+    Phi_axes[-1].set_xlim(dates[0], dates[-1])
 
     plt.show(block=False)

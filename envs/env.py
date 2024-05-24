@@ -32,11 +32,15 @@ class VerticalFarmEnv(gym.Env):
         # Get simulation configuration attributes
         self.cycle_duration_days = get_attribute(config, 'cycle_duration_days')
 
+        self.u_sup_max = get_attribute(config, 'u_sup_max')
+        self.rho_air = get_attribute(config, 'rho_air')
+        self.c_air = get_attribute(config, 'c_air')
+
         # Initialize model
         self.model = Model(self.config, self.cycle_duration_days)
 
         # Set attributes to render
-        self.crop_attributes_to_render = ['LAI', 'CAC', 'f_phot']
+        self.crop_attributes_to_render = ['LAI', 'CAC', 'f_phot', 'dry_weight_per_plant', 'fresh_weight_shoot_per_plant']
         self.climate_attributes_to_render = ['T_hvac', 'Chi_hvac', 'Chi_out', 'CO2_out', 'T_crop', 'T_desired', 'Chi_desired', 'CO2_desired']
 
         # Initialize Gym environment observation space
@@ -196,10 +200,10 @@ class VerticalFarmEnv(gym.Env):
         self.model.climate_model.Q_data[0,:] = fill_zeros_with_last(self.model.climate_model.Q_data[0,:])
         self.model.climate_model.Q_data[1,:] = fill_zeros_with_last(self.model.climate_model.Q_data[1,:])
         self.model.climate_model.Q_data[2,:] = fill_zeros_with_last(self.model.climate_model.Q_data[2,:])
-        self.model.climate_model.Q_data[3,:] = fill_zeros_with_last(self.model.climate_model.Q_data[3,:])
+        self.model.climate_model.Q_data[3,:] = fill_zeros_with_last(self.model.climate_model.Q_data[3,:]) # Q_hvac
 
         # Set values of Q_light where PPFD = 0 to 0
-        for i in range(len(self.model.climate_model.Q_data[2,:])):
+        for i in range(len(self.t_eval)):
             if self.actions[6,i] == 0:
                 self.model.climate_model.Q_data[2,i] = 0
 
@@ -208,6 +212,11 @@ class VerticalFarmEnv(gym.Env):
         self.model.climate_model.Phi_c_data[0,:] = fill_zeros_with_last(self.model.climate_model.Phi_c_data[0,:])
         self.model.climate_model.Phi_c_data[1,:] = fill_zeros_with_last(self.model.climate_model.Phi_c_data[1,:])
         self.model.climate_model.Phi_c_data[2,:] = fill_zeros_with_last(self.model.climate_model.Phi_c_data[2,:])
+
+        # Calculate balanced values of T_sup and Chi_sup
+        for i in range(len(self.t_eval)):
+            self.solutions[4,i] = self.solutions[0,i] + self.model.climate_model.Q_data[3,i]/(self.u_sup_max*self.rho_air*self.c_air)
+            self.solutions[5,i] = self.solutions[1,i] + self.model.climate_model.Phi_data[1,i]/(self.u_sup_max)
 
         if self.render_mode == 'file':
             self.visualization.save(self.t_eval, self.model, self.solutions, self.climate_attrs, self.crop_attrs, self.actions, self.all_data)

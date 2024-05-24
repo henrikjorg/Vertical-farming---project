@@ -96,8 +96,17 @@ class ClimateModel:
         Q_refl = U_par*CAC*self.c_r*self.A_crop
         Q_light = Q_ineff + Q_refl
 
-        R_net = (U_par * CAC * (1 - self.c_r))*self.A_crop
-        Q_sens_plant = (LAI * self.Lambda * self.A_crop * (Chi_crop - self.Chi_in) / (r_stm + r_bnd)) - R_net 
+        # print("P_light: ", P_light)
+        # print("r_stm: ", r_stm)
+        # print("r_bnd: ", r_bnd)
+        # print()
+
+        I_net_canopy = P_light * self.eta_light * CAC * (1 - self.c_r)
+        # I_net_canopy = P_light * self.eta_light * LAI * (1 - self.c_r)
+
+        Q_sens_plant = I_net_canopy - (LAI * self.Lambda * self.A_crop * (Chi_crop - self.Chi_in) / (r_stm + r_bnd))
+        # Q_sens_plant = I_net_canopy - (CAC * self.Lambda * self.A_crop * (Chi_crop - self.Chi_in) / (r_stm + r_bnd))
+        # Q_sens_plant = 0
 
         # Q_hvac = u_sup*self.rho_air*self.c_air*(self.T_sup - self.T_in) # Deprecated
         Q_hvac = -(Q_env + Q_sens_plant + Q_light) # HVAC is balanced to the required heating/cooling
@@ -113,8 +122,9 @@ class ClimateModel:
     def sup_temperature_ODE(self, u_sup, T_hvac):
         return (1/self.C_hvac)*u_sup*self.rho_air*self.c_duct*(T_hvac - self.T_sup)
 
-    def humidity_ODE(self, Chi_crop, u_sup, LAI, r_stm, r_bnd):
+    def humidity_ODE(self, Chi_crop, u_sup, LAI, r_stm, r_bnd, CAC):
         Phi_trans = LAI * self.A_crop * (Chi_crop - self.Chi_in) / (r_stm + r_bnd)
+        # Phi_trans = CAC * self.A_crop * (Chi_crop - self.Chi_in) / (r_stm + r_bnd)
 
         # Phi_hvac = u_sup*(self.Chi_sup - self.Chi_in) # Deprecated
         Phi_hvac = - Phi_trans # HVAC is balanced to the required humidity
@@ -160,15 +170,19 @@ class ClimateModel:
         self.__setattr__('Chi_out', Chi_out)
         
         r_stm = stomatal_resistance_eq(PPFD=PPFD)
+        # r_bnd = aerodynamical_resistance_eq(uninh_air_vel=self.air_vel, LAI=2.1, leaf_diameter=self.crop_model.leaf_diameter)
         r_bnd = aerodynamical_resistance_eq(uninh_air_vel=self.air_vel, LAI=LAI, leaf_diameter=self.crop_model.leaf_diameter)
 
         Chi_crop = calculate_absolute_humidity(self.p, self.T_crop, 100)
 
         dT_in_dt = self.temperature_ODE(U_par, Chi_crop, u_sup, CAC, LAI, r_stm, r_bnd)
-        dChi_in_dt = self.humidity_ODE(Chi_crop, u_sup, LAI, r_stm, r_bnd)
+        dChi_in_dt = self.humidity_ODE(Chi_crop, u_sup, LAI, r_stm, r_bnd, CAC)
         dCO2_in_dt = self.CO2_ODE(f_phot, u_sup, u_c_inj)
         dT_env_dt = self.env_temperature_ODE(T_out)
-        dT_sup_dt = self.sup_temperature_ODE(u_sup, T_hvac)
-        dChi_sup_dt = self.sup_humidity_ODE(u_sup, Chi_hvac)
+
+        # dT_sup_dt = self.sup_temperature_ODE(u_sup, T_hvac)
+        dT_sup_dt = 0
+        # dChi_sup_dt = self.sup_humidity_ODE(u_sup, Chi_hvac)
+        dChi_sup_dt = 0
         
         return np.array([dT_in_dt, dChi_in_dt, dCO2_in_dt, dT_env_dt, dT_sup_dt, dChi_sup_dt])

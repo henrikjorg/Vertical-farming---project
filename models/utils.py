@@ -77,7 +77,7 @@ def aerodynamical_resistance_eq(uninh_air_vel, LAI, leaf_diameter):
     Returns:
     - Aerodynamic resistance (s/m): The resistance to heat and vapor flux from the canopy to the atmosphere.
     """
-    return 350 * np.sqrt((leaf_diameter / uninh_air_vel)) * 1 / (LAI + 0.001)
+    return 350 * np.sqrt((leaf_diameter / uninh_air_vel)) * (1 / LAI)
 
 # Environmental values from Carotti, with optimal Values written off the plots of Talbot
 PPFD_values = np.array([200, 200, 200, 400, 400, 400, 750, 750, 750])

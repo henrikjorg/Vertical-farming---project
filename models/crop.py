@@ -60,6 +60,9 @@ class CropModel:
         self.CAC: float = LAI_to_CAC(self.LAI)
         self.f_phot: float = 0
 
+        # self.LAI: float = 2.1
+        # self.CAC: float = 0.95
+
     def set_fresh_weight_shoot(self):
         self.fresh_weight_shoot = self.dry_weight * (1 - self.c_tau) / self.dry_weight_fraction
         self.fresh_weight_shoot_per_plant = self.fresh_weight_shoot / self.plant_density
@@ -74,6 +77,9 @@ class CropModel:
         # self.LAI = SLA_to_LAI(SLA=self.SLA, c_tau=self.c_tau, leaf_to_shoot_ratio=self.leaf_to_shoot_ratio, X_s=self.X_s, X_ns=self.X_ns)
         self.LAI: float = biomass_to_LAI(self.X_s, self.c_lar, self.c_tau)
         self.CAC = LAI_to_CAC(self.LAI)
+
+        # self.LAI: float = 2.1
+        # self.CAC: float = 0.95
 
     def print_attributes(self, *args):
         if args:
@@ -131,8 +137,7 @@ class CropModel:
         PPFD = control_inputs[6]
         U_par = PPFD * self.c_p
         
-        LAI = SLA_to_LAI(SLA=self.SLA, c_tau=self.c_tau, leaf_to_shoot_ratio=self.leaf_to_shoot_ratio, X_s=X_s, X_ns=X_ns)
-        g_bnd = 1 / aerodynamical_resistance_eq(uninh_air_vel=self.climate_model.air_vel, LAI=LAI, leaf_diameter=self.leaf_diameter)
+        g_bnd = 1 / aerodynamical_resistance_eq(uninh_air_vel=self.climate_model.air_vel, LAI=self.LAI, leaf_diameter=self.leaf_diameter)
         g_stm = 1 / stomatal_resistance_eq(PPFD=PPFD)
         
         dNS_dt, dS_dt = self.biomass_ode(X_ns=X_ns, X_s=X_s, T_in=T_in, CO2_in=CO2_in, U_par=U_par, PPFD=PPFD, g_bnd=g_bnd, g_stm=g_stm)
