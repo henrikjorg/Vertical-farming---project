@@ -27,7 +27,7 @@ data = load_data('../data', start_datetime, end_datetime)
 
 # Generate dummy lighting PPFD control input
 num_days = (end_datetime - start_datetime).days
-base_pattern = np.concatenate([np.full(16, 1), np.full(8, 0)])
+base_pattern = np.concatenate([np.full(18, 1), np.full(6, 0)])
 PPFDs = np.tile(base_pattern, num_days)
 PPFDs = np.append(PPFDs, 0)
 
@@ -36,21 +36,9 @@ eval_env = VerticalFarmEnv(start_datetime, config, data, render_mode='file')
 obs, _ = eval_env.reset()
 i = 0
 while True:
-    u_humid = 0
-
     u_sup = 1
-
-    u_rot = 1
-
-    u_c_inj = 0
-
-    u_heat = 0
-
-    u_cool = 0
-
     PPFD = PPFDs[i]
-
-    action = np.array([u_rot, u_sup, u_cool, u_heat, u_humid, u_c_inj, PPFD])
+    action = np.array([0, u_sup, 0, 0, 0, 0, PPFD])
 
     obs, rewards, terminated, truncated, info = eval_env.step(action)
     eval_env.render()
