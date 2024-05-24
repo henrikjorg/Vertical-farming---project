@@ -99,18 +99,11 @@ class ClimateModel:
         R_net = (U_par * CAC * (1 - self.c_r))*self.A_crop
         Q_sens_plant = (LAI * self.Lambda * self.A_crop * (Chi_crop - self.Chi_in) / (r_stm + r_bnd)) - R_net 
 
-        # Q_hvac = u_sup*self.rho_air*self.c_air*(self.T_sup - self.T_in)
-        # Q_hvac = -(Q_env + Q_trans + Q_light)
-        Q_hvac = 0
+        # Q_hvac = u_sup*self.rho_air*self.c_air*(self.T_sup - self.T_in) # Deprecated
+        Q_hvac = -(Q_env + Q_sens_plant + Q_light) # HVAC is balanced to the required heating/cooling
 
         Qs = np.array([[Q_env, Q_sens_plant, Q_light, Q_hvac]]).T
         self.Q_data[:, self.t] = Qs[:, 0]
-        
-        # print("Q_env: ", Q_env)
-        # print("Q sens plant: ", Q_sens_plant)
-        # print("Q light: ", Q_light)
-        # print("Q hvac: ", Q_hvac)
-        # print()
 
         return (1/self.C_in)*(Q_env + Q_sens_plant + Q_light + Q_hvac)
     
@@ -118,36 +111,28 @@ class ClimateModel:
         return (1/self.C_env)*(self.alpha_env*self.A_env*(self.T_in - self.T_env) + self.alpha_ext*self.A_env*(T_out - self.T_env))
     
     def sup_temperature_ODE(self, u_sup, T_hvac):
-        # return 0
         return (1/self.C_hvac)*u_sup*self.rho_air*self.c_duct*(T_hvac - self.T_sup)
 
     def humidity_ODE(self, Chi_crop, u_sup, LAI, r_stm, r_bnd):
         Phi_trans = LAI * self.A_crop * (Chi_crop - self.Chi_in) / (r_stm + r_bnd)
 
-        # Phi_hvac = u_sup*(self.Chi_sup - self.Chi_in)
-        Phi_hvac = - Phi_trans
+        # Phi_hvac = u_sup*(self.Chi_sup - self.Chi_in) # Deprecated
+        Phi_hvac = - Phi_trans # HVAC is balanced to the required humidity
 
         Phis = np.array([[Phi_trans, Phi_hvac]]).T
         self.Phi_data[:, self.t] = Phis[:, 0]
 
-        # print("Phi_trans:", Phi_trans)
-        # print("Phi_hvac:", Phi_hvac)
-        # print()
-
-        # return 0
         return (1/self.V_in)*(Phi_trans + Phi_hvac)
     
     def sup_humidity_ODE(self, u_sup, Chi_hvac):
-        # return 0
         return (1/self.V_hvac)*(u_sup*(Chi_hvac - self.Chi_sup))
     
     def CO2_ODE(self, f_phot, u_sup, Phi_c_inj):
         Phi_c_ass = - f_phot*self.A_crop
 
-        # Phi_c_hvac = u_sup*(self.rho_c/1000)*(self.CO2_out - self.CO2_in)
-        Phi_c_hvac = 0
+        Phi_c_hvac = u_sup*(self.rho_c/1000)*(self.CO2_out - self.CO2_in)
 
-        Phi_c_inj = -(Phi_c_ass + Phi_c_hvac)
+        Phi_c_inj = -(Phi_c_ass + Phi_c_hvac) # CO2 injection is balanced to stay at the desired level
 
         Phis = np.array([[Phi_c_ass, Phi_c_hvac, Phi_c_inj]]).T
         self.Phi_c_data[:, self.t] = Phis[:, 0]
@@ -159,10 +144,6 @@ class ClimateModel:
 
         T_in, Chi_in, CO2_in, T_env, T_sup, Chi_sup, X_ns, X_s = state
         self._update_state(T_in, Chi_in, CO2_in, T_env, T_sup, Chi_sup)
-
-        # TESTING WITH CONSTANT SUPPLY
-        # self.T_sup = self.T_desired
-        # self.Chi_sup = self.Chi_desired
         
         LAI = self.crop_model.LAI
         CAC = self.crop_model.CAC
