@@ -34,7 +34,7 @@ class RenderFile:
             2: "Electricity price"
         }
 
-        self.Q_labels = ["Q_env", "Q_sens_plant", "Q_light", "Q_hvac"]
+        self.Q_labels = ["Q_env", "Q_sens_plant", "Q_light", "Q_hvac", "P_light"]
         self.Phi_labels = ["Phi_trans", "Phi_hvac"]
         self.Phi_c_labels = ["Phi_c_ass", "Phi_c_hvac", "Phi_c_inj"]
 

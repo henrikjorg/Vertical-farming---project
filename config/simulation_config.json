@@ -6,10 +6,10 @@
     "cycle_duration_days": 20,
 
     "A_env": 48,
-    "A_crop": 9,
+    "A_crop": 27,
     "V_in": 36,
     "V_hvac": 2.88,
-    "eta_light": 0.81,
+    "eta_light": 0.52,
     "u_sup_max": 0.192,
     "PPFD_max": 250,
 
