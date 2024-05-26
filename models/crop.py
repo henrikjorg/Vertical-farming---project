@@ -60,9 +60,6 @@ class CropModel:
         self.CAC: float = LAI_to_CAC(self.LAI)
         self.f_phot: float = 0
 
-        # self.LAI: float = 2.1
-        # self.CAC: float = 0.95
-
     def set_fresh_weight_shoot(self):
         self.fresh_weight_shoot = self.dry_weight * (1 - self.c_tau) / self.dry_weight_fraction
         self.fresh_weight_shoot_per_plant = self.fresh_weight_shoot / self.plant_density
@@ -77,9 +74,6 @@ class CropModel:
         # self.LAI = SLA_to_LAI(SLA=self.SLA, c_tau=self.c_tau, leaf_to_shoot_ratio=self.leaf_to_shoot_ratio, X_s=self.X_s, X_ns=self.X_ns)
         self.LAI: float = biomass_to_LAI(self.X_s, self.c_lar, self.c_tau)
         self.CAC = LAI_to_CAC(self.LAI)
-
-        # self.LAI: float = 2.1
-        # self.CAC: float = 0.95
 
     def print_attributes(self, *args):
         if args:
@@ -104,10 +98,6 @@ class CropModel:
         return f_phot_max
     
     def biomass_ode(self, X_ns: float, X_s: float, T_in: float, CO2_in: float, U_par: float, PPFD: float, g_bnd: float, g_stm: float):
-        # FOR TESTING PURPOSES
-        T_in = 24
-        CO2_in = 1200
-
         CO2_ppm = CO2_in
         g_car = self.c_car_1 * T_in**2 + self.c_car_2 * T_in + self.c_car_3
         g_CO2 = 1 / (1 / g_bnd + 1 / g_stm + 1 / g_car)
