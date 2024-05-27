@@ -115,7 +115,9 @@ class ClimateModel:
         Qs = np.array([[Q_env, Q_sens_plant, Q_light, Q_hvac, P_light]]).T
         self.Q_data[:, self.t] = Qs[:, 0]
 
-        return (1/self.C_in)*(Q_env + Q_sens_plant + Q_light + Q_hvac)
+        return (1/self.C_in)*(Q_env+Q_sens_plant+Q_light)
+
+        # return (1/self.C_in)*(Q_env + Q_sens_plant + Q_light + Q_hvac)
     
     def env_temperature_ODE(self, T_out):
         return (1/self.C_env)*(self.alpha_env*self.A_env*(self.T_in - self.T_env) + self.alpha_ext*self.A_env*(T_out - self.T_env))
@@ -135,6 +137,7 @@ class ClimateModel:
         Phis = np.array([[Phi_trans, Phi_hvac]]).T
         self.Phi_data[:, self.t] = Phis[:, 0]
 
+        return (1/self.V_in)*(Phi_trans)
         return (1/self.V_in)*(Phi_trans + Phi_hvac)
     
     def sup_humidity_ODE(self, u_sup, Chi_hvac):

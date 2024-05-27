@@ -84,6 +84,11 @@ class CropModel:
                 print(f"{attr}: {value}")
 
     def return_photosynthesis(self, CO2_in, T_in, g_bnd, g_stm, U_par, fun_type='rectangular'):
+
+        CO2_in = 1200
+        T_in = 24
+
+
         CO2_ppm = CO2_in
         g_car = self.c_car_1 * T_in**2 + self.c_car_2 * T_in + self.c_car_3
         g_CO2 = 1 / (1 / g_bnd + 1 / g_stm + 1 / g_car)
@@ -98,6 +103,11 @@ class CropModel:
         return f_phot_max
     
     def biomass_ode(self, X_ns: float, X_s: float, T_in: float, CO2_in: float, U_par: float, PPFD: float, g_bnd: float, g_stm: float):
+
+        CO2_in = 1200
+        T_in = 24
+
+
         CO2_ppm = CO2_in
         g_car = self.c_car_1 * T_in**2 + self.c_car_2 * T_in + self.c_car_3
         g_CO2 = 1 / (1 / g_bnd + 1 / g_stm + 1 / g_car)
