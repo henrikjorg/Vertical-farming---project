@@ -24,7 +24,7 @@ rho_air = get_attribute(config, 'rho_air')
 c_air = get_attribute(config, 'c_air')
 Lambda = get_attribute(config, 'lambda')
 
-u_ext = u_sup/2
+u_ext = u_sup
 
 # Import data from CSV file
 df = pd.read_csv('../render/csv/winter_LED52_simulation.csv')
@@ -56,12 +56,17 @@ for i in tqdm(range(0, len(T_ins) + 1, 60*60)):
     # 1) Rotary heat exchanger
 
     # MOISTURE CONTROL
-    desired_u_rot = (desired_Chi_sup - Chi_out) / ((u_sup/u_ext)*eta_rot_Chi*(Chi_in - Chi_out))
+    # desired_u_rot = (desired_Chi_sup - Chi_out) / ((u_sup/u_ext)*eta_rot_Chi*(Chi_in - Chi_out))
+
+    desired_u_rot = eta_rot_Chi*(u_ext/u_sup)*((Chi_in - Chi_out)/(desired_Chi_sup-Chi_out))
+    # print("desired u rot: ", desired_u_rot)
+    # print(test2)
+    # print()
 
     u_rot = min(max(desired_u_rot, 0), 1) # Keep u_rot between 0 and 1
 
-    T_rot = 2*u_rot*eta_rot_T*(T_in - T_out) + T_out
-    Chi_rot = 2*u_rot*eta_rot_Chi*(Chi_in - Chi_out) + Chi_out
+    T_rot = (u_ext/u_sup)*u_rot*eta_rot_T*(T_in - T_out) + T_out
+    Chi_rot = (u_ext/u_sup)*u_rot*eta_rot_Chi*(Chi_in - Chi_out) + Chi_out
 
     # 2) Supply fan
     T_fan = T_rot + 1
@@ -111,8 +116,8 @@ for i in tqdm(range(0, len(T_ins) + 1, 60*60)):
         desired_W_sup = (desired_Chi_sup/rho_air)/1000 # kg/kg
         W_cool = (Chi_cool/rho_air)/1000 # kg/kg
         Q_humid = u_sup*rho_air*(desired_W_sup - W_cool)*Lambda # kW
-        Q_humid = Q_humid*1000
-        # Q_humid = Q_humid*1000 * 0.02
+        # Q_humid = Q_humid*1000
+        Q_humid = Q_humid*1000 * 0.02
 
     new_dates.append(dates[i])
     new_P_lights.append(P_lights[i])

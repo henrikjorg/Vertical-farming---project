@@ -26,7 +26,7 @@ folder_name = "sens-CAC_trans-CAC"
 
 # Import data from CSV file
 # df = pd.read_csv('../render/csv/' + folder_name + '/winter_LED81_hvac_calculations.csv')
-df = pd.read_csv('../render/csv/winter_LED81_hvac_calculations.csv')
+df = pd.read_csv('../render/csv/270524-1449_hvac_calculations.csv')
 date_strings = df['Date'].to_numpy()
 dates = pd.to_datetime(date_strings)
 
@@ -36,8 +36,8 @@ Q_heat = sum(y[2, :])/1000
 Q_humid = sum(y[3, :])/1000
 print("P light total consumption 1: ", sum(y[4, :])/1000)
 
-# df2 = pd.read_csv('../render/csv/winter_LED52_hvac_calculations.csv')
-df2 = pd.read_csv('../render/csv/250524-1701_hvac_calculations.csv')
+df2 = pd.read_csv('../render/csv/winter_LED52_hvac_calculations.csv')
+# df2 = pd.read_csv('../render/csv/250524-1701_hvac_calculations.csv')
 y2 = df2[['u_rot', 'Q_cool', 'Q_heat', 'Q_humid', 'P_light']].to_numpy().T
 Q_cool2 = sum(y2[1, :])/1000
 Q_heat2 = sum(y2[2, :])/1000
