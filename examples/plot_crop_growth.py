@@ -33,7 +33,7 @@ actions = df[['PPFD']].to_numpy().T
 
 # FIGURE 1: X_sdw, X_nsdw, fresh shoot_weight_per_plant, PPFD
 
-crop_fig, crop_axes = plt.subplots(2, 1, figsize=(10*0.6, 6*0.6), sharex=True, layout='constrained')
+crop_fig, crop_axes = plt.subplots(3, 1, figsize=(10*0.6, 6*0.6), sharex=True, layout='constrained')
 crop_fig.supxlabel('Days')
 
 X_ax = crop_axes[0]
@@ -53,28 +53,14 @@ X_fw_ax.xaxis.set_major_locator(mdates.DayLocator(interval=2))
 X_fw_ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f'{int(x) - (19393+155)}'))
 # plt.setp(CAC_ax.get_xticklabels(), rotation=50, ha='right')
 
-# Set shared x-axis limits
-X_fw_ax.set_xlim(dates[0], dates[-1])
+# LAI_ax = crop_axes[2]
+# LAI_ax.set_ylabel('$\mathrm{Leaf \ area \ index} \ [\mathrm{-}]$')
+# LAI_ax.plot(dates, crop_attrs[0,:], linewidth=2, color='red')
+# LAI_ax.legend([r"$\mathit{LAI}$"])
 
-# plt.savefig("../examples/simulations/crop_growth.pgf")
-
-
-
-
-
-# Second figure with LAI, CAC, f_phot (as the crop grows thesse evolve --> parameters that the indoor climate model is dependent on)
-
-LAI_fig, LAI_axes = plt.subplots(2, 1, figsize=(10*0.6, 6*0.6), sharex=True, layout='constrained')
-LAI_fig.supxlabel('Days')
-
-LAI_ax = LAI_axes[0]
-LAI_ax.set_ylabel('$\mathrm{Leaf \ area \ index} \ [\mathrm{-}]$')
-LAI_ax.plot(dates, crop_attrs[0,:], linewidth=2)
-LAI_ax.legend([r"$\mathit{LAI}$"])
-
-f_phot_ax = LAI_axes[1]
+f_phot_ax = crop_axes[2]
 f_phot_ax.set_ylabel('$\mathrm{Photosynthesis} \ [\mathrm{g} \ \mathrm{m}^{-2} \ \mathrm{s}^{-1}]$')
-f_phot_ax.plot(dates, solutions[9,:], linewidth=2, c='g')
+f_phot_ax.plot(dates, solutions[9,:], linewidth=2, c='purple')
 f_phot_ax.ticklabel_format(axis='y', style='sci', scilimits=(0,0))
 f_phot_ax.legend([r"$f_\mathrm{phot}$"])
 
@@ -86,6 +72,9 @@ f_phot_ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f'{int(x) - (
 
 # Set shared x-axis limits
 f_phot_ax.set_xlim(dates[0], dates[-1])
+
+# Align y-axes
+crop_fig.align_ylabels()
 
 plt.show()
 
