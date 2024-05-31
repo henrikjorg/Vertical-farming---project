@@ -66,18 +66,10 @@ def load_data(folder, start_datetime, end_datetime):
     # Generate dummy electricity price data
     electricity_price = np.random.uniform(0.1, 0.5, len(outdoor_temperature))
 
-    # TODO: Load lighting intensity data
-    # Generate dummy lighting intensity data
-    # num_days = (end_datetime - start_datetime).days
-    # base_pattern = np.concatenate([np.full(16, 300), np.full(8, 0)])
-    # lighting_intensity = np.tile(base_pattern, num_days)
-    # lighting_intensity = np.append(lighting_intensity, 0)
-
     data = {
         "outdoor_temperature": outdoor_temperature,
         "outdoor_humidity": outdoor_humidity,
         "electricity_price": electricity_price,
-        # "lighting_intensity": lighting_intensity
     }
 
     date_range = pd.date_range(start=start_datetime, end=end_datetime, freq='H')

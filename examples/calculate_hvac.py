@@ -27,7 +27,7 @@ Lambda = get_attribute(config, 'lambda')
 u_ext = u_sup
 
 # Import data from CSV file
-df = pd.read_csv('../render/csv/winter_LED52_simulation.csv')
+df = pd.read_csv('../render/csv/310524-1329_simulation.csv')
 dates = df['Date'].to_numpy()
 P_lights = df['P_light'].to_numpy()
 T_ins = df['T_in'].to_numpy()
@@ -56,14 +56,10 @@ for i in tqdm(range(0, len(T_ins) + 1, 60*60)):
     # 1) Rotary heat exchanger
 
     # MOISTURE CONTROL
-    # desired_u_rot = (desired_Chi_sup - Chi_out) / ((u_sup/u_ext)*eta_rot_Chi*(Chi_in - Chi_out))
+    # desired_u_rot = eta_rot_Chi*(u_ext/u_sup)*((Chi_in - Chi_out)/(desired_Chi_sup-Chi_out))
+    # u_rot = min(max(desired_u_rot, 0), 1) # Keep u_rot between 0 and 1
 
-    desired_u_rot = eta_rot_Chi*(u_ext/u_sup)*((Chi_in - Chi_out)/(desired_Chi_sup-Chi_out))
-    # print("desired u rot: ", desired_u_rot)
-    # print(test2)
-    # print()
-
-    u_rot = min(max(desired_u_rot, 0), 1) # Keep u_rot between 0 and 1
+    u_rot = 1
 
     T_rot = (u_ext/u_sup)*u_rot*eta_rot_T*(T_in - T_out) + T_out
     Chi_rot = (u_ext/u_sup)*u_rot*eta_rot_Chi*(Chi_in - Chi_out) + Chi_out
@@ -125,8 +121,6 @@ for i in tqdm(range(0, len(T_ins) + 1, 60*60)):
     Q_cools.append(Q_cool)
     Q_heats.append(Q_heat)
     Q_humids.append(Q_humid)
-
-
 
 # Create CSV file if it doesn't exist
 now_datetime_str = datetime.datetime.now().strftime("%d%m%y-%H%M")

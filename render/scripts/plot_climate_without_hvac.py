@@ -20,8 +20,7 @@ plt.rcParams.update({
     'axes.spines.right': False,
 })
 
-
-df = pd.read_csv('../render/csv/290524-1342_simulation.csv')
+df = pd.read_csv('../csv/5_days_without_hvac_simulation.csv')
 
 date_strings = df['Date'].to_numpy()
 dates = pd.to_datetime(date_strings)
@@ -45,7 +44,6 @@ temp_ax.axhline(y=solutions[0, 0], color='gray', linestyle='--', linewidth=1, al
 temp_ax.set_ylim(22.2, 44)
 temp_ax.legend([r"$T_\mathrm{in}$"])
 
-
 humid_ax = axes[1]
 humid_ax.set_ylabel('$\mathrm{Absolute \ humidity} \ [\mathrm{g} \ \mathrm{m}^{-3}]$')
 humid_ax.plot(dates, solutions[1, :], linewidth=2, alpha=1, c='orange') # Chi_in
@@ -59,14 +57,6 @@ humid_ax.set_xlabel('Days')
 humid_ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
 humid_ax.xaxis.set_major_locator(mdates.DayLocator())
 humid_ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f'{int(x) - (19393)}'))
-
-# humid_ax.xaxis.set_major_formatter(mdates.DateFormatter('%d %b %Y'))
-# humid_ax.xaxis.set_major_locator(mdates.DayLocator())
-# plt.setp(humid_ax.get_xticklabels(), rotation=50, ha='right')
-
-# humid_ax.xaxis.set_minor_formatter(mdates.DateFormatter('%H:%M'))
-# humid_ax.xaxis.set_minor_locator(mdates.HourLocator(interval=3))
-# plt.setp(humid_ax.xaxis.get_minorticklabels(), rotation=50, ha='right')
 
 humid_ax.set_xlim(dates[0], dates[-1])
 

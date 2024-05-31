@@ -7,7 +7,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from render.plot import *
 
-df = pd.read_csv('../render/csv/270524-1549_simulation.csv')
+df = pd.read_csv('../csv/summer_LED80_simulation.csv')
 
 date_strings = df['Date'].to_numpy()
 dates = pd.to_datetime(date_strings)
@@ -30,7 +30,7 @@ print(Qs.shape)
 
 plot_climate_figure(dates, solutions, climate_attrs, all_data)
 plot_crop_figure(dates, solutions, crop_attrs)
-# plot_control_input_figure(dates, actions)
+plot_control_input_figure(dates, actions)
 
 # Only plot Qs and Phis for every hour (not second)
 new_dates = dates[::3600]

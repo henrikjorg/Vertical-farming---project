@@ -13,12 +13,12 @@ import numpy as np
 config = load_config('../config/')
 
 # Winter scenario
-start_date = '2023-02-05'
-end_date = '2023-02-25'
+# start_date = '2023-02-05'
+# end_date = '2023-02-25'
 
 # Summer scenario
-# start_date = '2023-07-10'
-# end_date = '2023-07-30'
+start_date = '2023-07-10'
+end_date = '2023-07-30'
 
 start_datetime = datetime.datetime.strptime(start_date, '%Y-%m-%d')
 end_datetime = datetime.datetime.strptime(end_date, '%Y-%m-%d')

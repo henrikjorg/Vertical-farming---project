@@ -20,7 +20,7 @@ plt.rcParams.update({
     'axes.spines.right': False,
 })
 
-df = pd.read_csv('../render/csv/constant_crop_growth_simulation.csv')
+df = pd.read_csv('../csv/constant_crop_growth_simulation.csv')
 
 date_strings = df['Date'].to_numpy()
 dates = pd.to_datetime(date_strings)
@@ -30,8 +30,6 @@ solutions = df[['T_in', 'Chi_in', 'CO2_in', 'T_env', 'T_sup', 'Chi_sup', 'X_ns',
 crop_attrs = df[['LAI', 'CAC']].to_numpy().T
 
 actions = df[['PPFD']].to_numpy().T
-
-# FIGURE 1: X_sdw, X_nsdw, fresh shoot_weight_per_plant, PPFD
 
 crop_fig, crop_axes = plt.subplots(3, 1, figsize=(10*0.6, 6*0.6), sharex=True, layout='constrained')
 crop_fig.supxlabel('Days')
@@ -51,12 +49,6 @@ X_fw_ax.legend([r"$X_\mathrm{fw,sht}$"])
 X_fw_ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
 X_fw_ax.xaxis.set_major_locator(mdates.DayLocator(interval=2))
 X_fw_ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f'{int(x) - (19393+155)}'))
-# plt.setp(CAC_ax.get_xticklabels(), rotation=50, ha='right')
-
-# LAI_ax = crop_axes[2]
-# LAI_ax.set_ylabel('$\mathrm{Leaf \ area \ index} \ [\mathrm{-}]$')
-# LAI_ax.plot(dates, crop_attrs[0,:], linewidth=2, color='red')
-# LAI_ax.legend([r"$\mathit{LAI}$"])
 
 f_phot_ax = crop_axes[2]
 f_phot_ax.set_ylabel('$\mathrm{Photosynthesis} \ [\mathrm{g} \ \mathrm{m}^{-2} \ \mathrm{s}^{-1}]$')
@@ -68,7 +60,6 @@ f_phot_ax.legend([r"$f_\mathrm{phot}$"])
 f_phot_ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
 f_phot_ax.xaxis.set_major_locator(mdates.DayLocator(interval=2))
 f_phot_ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f'{int(x) - (19393+155)}'))
-# plt.setp(CAC_ax.get_xticklabels(), rotation=50, ha='right')
 
 # Set shared x-axis limits
 f_phot_ax.set_xlim(dates[0], dates[-1])
