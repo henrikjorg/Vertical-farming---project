@@ -16,7 +16,7 @@ pip install -r requirements.txt
 ## Simulate example scenarios with the Gymnasium environment
 ```bash
 cd examples
-python example_scenarios.py
+python scenarios.py
 ```
 
 ## Run closed-loop MPC optimization for artificial lighting
