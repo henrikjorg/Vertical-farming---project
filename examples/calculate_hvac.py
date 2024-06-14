@@ -27,7 +27,7 @@ Lambda = get_attribute(config, 'lambda')
 u_ext = u_sup
 
 # Import data from CSV file
-df = pd.read_csv('../render/csv/310524-1329_simulation.csv')
+df = pd.read_csv('../render/csv/290524-1305_simulation.csv')
 dates = df['Date'].to_numpy()
 P_lights = df['P_light'].to_numpy()
 T_ins = df['T_in'].to_numpy()
@@ -54,11 +54,6 @@ for i in tqdm(range(0, len(T_ins) + 1, 60*60)):
     desired_Chi_sup = desired_Chi_sups[i]
 
     # 1) Rotary heat exchanger
-
-    # MOISTURE CONTROL
-    # desired_u_rot = eta_rot_Chi*(u_ext/u_sup)*((Chi_in - Chi_out)/(desired_Chi_sup-Chi_out))
-    # u_rot = min(max(desired_u_rot, 0), 1) # Keep u_rot between 0 and 1
-
     u_rot = 1
 
     T_rot = (u_ext/u_sup)*u_rot*eta_rot_T*(T_in - T_out) + T_out
@@ -111,9 +106,8 @@ for i in tqdm(range(0, len(T_ins) + 1, 60*60)):
     if Chi_cool < desired_Chi_sup:
         desired_W_sup = (desired_Chi_sup/rho_air)/1000 # kg/kg
         W_cool = (Chi_cool/rho_air)/1000 # kg/kg
-        Q_humid = u_sup*rho_air*(desired_W_sup - W_cool)*Lambda # kW
-        # Q_humid = Q_humid*1000
-        Q_humid = Q_humid*1000 * 0.02
+        Q_humid = 1000*u_sup*rho_air*(desired_W_sup - W_cool)*Lambda # kW
+        Q_humid = Q_humid * 0.1
 
     new_dates.append(dates[i])
     new_P_lights.append(P_lights[i])
