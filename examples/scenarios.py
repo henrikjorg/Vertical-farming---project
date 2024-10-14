@@ -5,7 +5,7 @@ os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0' # Ignore tensorflow warning
 
 import datetime
 from config.utils import load_config
-from data.utils import load_data
+from external.data import load_data
 from envs.env import VerticalFarmEnv
 
 import numpy as np

@@ -5,7 +5,7 @@ from datetime import datetime
 
 from gymnasium import spaces
 from scipy.integrate import solve_ivp
-from models.model import Model
+from models.deterministic.model import Model
 from typing import Optional
 from render.live import RenderLive
 from render.print import RenderPrint
